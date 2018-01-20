@@ -1,3 +1,7 @@
+'''Deploy trained model for inference
+This script would optimize a trained model for deployment
+'''
+
 from __future__ import print_function
 
 import os
@@ -15,6 +19,7 @@ def _main_():
     # #################
     # Setup export path
     ###################
+    # @TODO: create Argument Parse
     model_filename = './faster_rcnn_inception_v2_coco_2017_11_08/frozen_inference_graph.pb'
 
     version    = 1
