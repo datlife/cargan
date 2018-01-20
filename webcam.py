@@ -1,7 +1,6 @@
-"""Demo YOLOv2 using webcam or any video source
+"""Object detection using webcam
 
 In order to find a video source, type `ls -l /dev/video*` in UNIX terminal
-
 """
 import os
 import sys
@@ -19,6 +18,7 @@ from utils.webcam import WebcamVideoStream
 
 
 def main():
+    # @TODO: add Argument Parser
     model_name = 'ssd'
     model_path = os.path.join(sys.path[0], 'detector', model_name)
 
