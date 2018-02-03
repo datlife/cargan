@@ -31,7 +31,7 @@ def draw_boxes(img, bboxes, classes, scores):
         y1, x1, y2, x2 = [int(i) for i in box]
         p1 = (x1, y1)
         p2 = (x2, y2)
-        label = '{} {:.1f}%   '.format(category.title(), score * 100)
+        label = '{} {:.1f}%   '.format(category, score * 100)
         label_size = draw.textsize(label)
         text_origin = np.array([p1[0], p1[1] - label_size[1]])
 

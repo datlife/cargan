@@ -16,14 +16,19 @@ from utils.painter import draw_boxes, draw_fps
 from utils.tfserving import DetectionClient, DetectionServer
 from utils.webcam import WebcamVideoStream
 
+LABELS = {
+    'coco':  './detector/label_maps/mscoco.pbtxt',
+    'kitti': './detector/label_maps/kitti.pbtxt',
+}
+
 
 def main():
     # @TODO: add Argument Parser
-    model_name = 'ssd'
+    model_name = 'ssd_inception_v2_coco'
     model_path = os.path.join(sys.path[0], 'detector', model_name)
 
     parser = argparse.ArgumentParser(description="Demo")
-    parser.add_argument('--video_source', type=int, default=1,
+    parser.add_argument('--video_source', type=int, default=0,
                         help="Video device[default = 1]")
 
     # ############
@@ -34,7 +39,9 @@ def main():
         config = yaml.load(stream)
 
     interference = config['interference']
-    label_dict = parse_label_map(config['label_map'])
+    key = [i for i in LABELS.keys() if i in model_name][0]
+    label_dict = parse_label_map(LABELS[key])
+
     server     = interference['server']
     print(label_dict)
     # #####################
@@ -59,7 +66,7 @@ def main():
         # ##########
         # Start Demo
         # ###########
-        viewer = WebCamViewer(video_capture, object_detector, score_threshold=interference['score_threshold'])
+        viewer = WebCamViewer(video_capture, object_detector, score_threshold=0.1)
         viewer.run()
 
         # ############
@@ -71,7 +78,7 @@ def main():
 
 
 class WebCamViewer(object):
-    def __init__(self, video_capture, detector, score_threshold=0.6):
+    def __init__(self, video_capture, detector, score_threshold):
         self.video    = video_capture
         self.detector = detector
         self.threshold = score_threshold

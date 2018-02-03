@@ -35,7 +35,7 @@ class DetectionClient(object):
         channel = implementations.insecure_channel(self.host, int(self.port))
         self.stub = prediction_service_pb2.beta_create_PredictionService_stub(channel)
 
-    def predict(self, image, img_dtype=tf.uint8):
+    def predict(self, image, img_dtype=tf.uint8, timeout=20.0):
         request = predict_pb2.PredictRequest()
 
         start = time.time()
@@ -47,7 +47,7 @@ class DetectionClient(object):
         request.model_spec.signature_name = 'predict_images'
 
         pred = time.time()
-        result = self.stub.Predict(request, 20.0)  # 20 secs timeout
+        result = self.stub.Predict(request, timeout)  # 20 secs timeout
 
         if self.model == 'detector':
             num_detections = -1
@@ -107,7 +107,6 @@ class DetectionServer(object):
                     stdin=subprocess.PIPE, shell=True)
                 print("Serving Server is started at PID %s\n" % self.server.pid)
                 self.running = True
-
             else:
                 print("Serving Server has been activated already..\n")
 
@@ -115,13 +114,14 @@ class DetectionServer(object):
             if self.running:
                 self.running = True
                 self._turn_off_server()
-
                 print("Serving Server is off now\n")
             else:
                 print("Serving Server is not activated yet..\n")
 
+        return self
+
     def _turn_off_server(self):
-        ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % self.server.pid,
+        ps_command = subprocess.Popen("kill -9 $(lsof -t -i:%d -sTCP:LISTEN)" % self.port,
                                       shell=True,
                                       stdout=subprocess.PIPE)
 
