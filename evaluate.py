@@ -1,99 +1,191 @@
+"""
+Evaluate Detection Model's performance
+
+Assumptions:
+  * Annotation files follow PASCAL VOC format
+  * Detection files follow PASCAL VOC Detection Evaluation format
+"""
 import os
-import sys
-import time
-import cv2
+import argparse
 import numpy as np
+import tensorflow as tf
+
 from glob import glob
+from utils.ops import compute_iou
+from utils.metrics import compute_average_precision
+import xml.etree.ElementTree as ET
 
-from utils.painter import draw_boxes
-from utils.parser import parse_label_map
-from utils.tfserving import DetectionClient, DetectionServer
+from tensorboard.plugins.pr_curve import summary
+import matplotlib.pyplot as plt
+plt.interactive(False)
 
-TEST_DATA = './test_data/JPEGImages'
-DETECTORS = [
-    'faster_rcnn_resnet101_kitti',
-    'faster_rcnn_inception_resnet_v2_atrous_coco',
-    'ssd_inception_v2_coco',
-    'rfcn_resnet101_coco'
-]
+parser = argparse.ArgumentParser()
 
-LABEL_MAPS = {
-    'coco': './detector/label_maps/mscoco.pbtxt',
-    'kitti': './detector/label_maps/kitti.pbtxt',
-}
-OUTPUT = './test_data/Main/'
+parser.add_argument('--annotation_dir', default='./test_data/Annotations')
+
+parser.add_argument('--detection_dir', default='./test_data/Main')
+
+parser.add_argument('--logdir', default='/tmp/cargan',
+                    help='Directory stores Tensorboard log')
 
 
-def main():
-    server = 'localhost:9000'
+def _main_():
+    args = parser.parse_args()
+    annotation__file_pattern = os.path.join(os.path.abspath(args.annotation_dir), '*.xml')
+    detection_file_pattern   = os.path.join(os.path.abspath(args.detection_dir), '*.txt')
 
-    # Prepare images
-    glob_pattern = os.path.join(os.path.abspath(TEST_DATA), '*.jpg')
-    img_files = sorted(glob(glob_pattern), key=os.path.getctime)
+    annotation_files = sorted(glob(annotation__file_pattern), key=os.path.getctime)
+    detection_files  = sorted(glob(detection_file_pattern), key=os.path.getctime)
 
-    for model_name in ['yolov2']:
-        # Init Detection Server
-        model_path = os.path.join(sys.path[0], 'detector', model_name)
-        tf_serving_server = DetectionServer(model=model_name, model_path=model_path).start()
+    # Generate a dictionary for ground truths, whereas:
+    #    key: filename without extension
+    #    values: a list of dict
+    ground_truths = {os.path.basename(xml_file).split('.')[0]: parse_pascal_voc_annotation(xml_file)
+                     for xml_file in annotation_files}
 
-        # Wait for server to start
-        time.sleep(5.0)
-        if tf_serving_server.is_running():
-            print("\n\nInitialized TF Serving at {} with model {}".format(server, model_name))
+    for idx, detection_file in enumerate(detection_files):
+        detections = parse_detection_file(detection_file)
+        model_name = os.path.basename(detection_file).split('_det')[0]
+        scores, labels = eval_ap_recall_per_class(ground_truths,
+                                                  detections,
+                                                  iou_threshold=0.5)
 
-            # Look up proper label map file
-            if 'coco' in model_name:
-                label_dict = parse_label_map(LABEL_MAPS['coco'])
+        summarize(scores, labels, args.logdir, model_name, num_thresholds=50)
+
+    # @TODO: ensemble multiple detectors
+    # @TODO: NMS & score threshold
+
+
+def summarize(scores, labels, logdir, run_name, num_thresholds):
+
+    summary.op(
+            tag='pr_curve',
+            labels=tf.cast(labels, tf.bool),
+            predictions=tf.cast(scores, tf.float32),
+            num_thresholds=num_thresholds,
+            display_name='Precision - Recall',
+    )
+    merged_op = tf.summary.merge_all()
+
+    event_dir = os.path.join(logdir, run_name)
+    writer = tf.summary.FileWriter(event_dir)
+
+    with tf.Session() as session:
+        writer.add_summary(session.run(merged_op), global_step=1)
+
+    print('Save summary in %s\n' % event_dir)
+    tf.reset_default_graph()
+    writer.close()
+
+
+def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
+
+    """Generate Average Precision - Recall.
+
+    First we compute the iou matrix between ground truths and detections. Its shape is
+    `[num_ground_truths, num_detections]`.
+
+    Reference:
+    http://host.robots.ox.ac.uk/pascal/VOC/voc2012/htmldoc/devkit_doc.html#SECTION00051000000000000000
+
+    # True Positives:  Pr(detected  | object presents)
+    # False Negatives: Pr(undetected| object presents) = 1 - Pr(detected | object presents)
+    # False Positives: Pr(detected  | object not presents)
+    """
+
+    labels = []
+    scores = []
+    num_gt = 0
+    for img_id in ground_truths.keys():
+        gt_bboxes_per_img   = np.array(ground_truths[img_id]['bboxes'])
+        num_gt += len(gt_bboxes_per_img)
+
+        # If there is detected objects
+        if img_id in detections.keys():
+            pred_bboxes_per_img = np.array(detections[img_id]['bboxes'])
+            iou_matrix = compute_iou(gt_bboxes_per_img, pred_bboxes_per_img)
+
+            label = np.zeros(len(pred_bboxes_per_img), dtype=bool)
+            detected = [False] * iou_matrix.shape[0]
+            # Determine whether the detection is a True/False positive
+            for col in range(iou_matrix.shape[1]):
+                good_detections = iou_matrix[..., col] >= iou_threshold
+                idx = int(np.argmax(good_detections))
+                if np.count_nonzero(good_detections) > 0.0 and detected[idx] is False:
+                    label[col] = 1.0     # mark as True Positive
+                    detected[idx] = True
+            scores.append(np.array(detections[img_id]['scores'], dtype=np.float32))
+            labels.append(label)
+            # # For debugging
+            # if img_id == '19':
+            #     np.set_printoptions(precision=2)
+            #     print(iou_matrix)
+            #     print(np.max(iou_matrix, axis=0))
+            #     print("TP {} || FN {} || FP {}".format(np.count_nonzero(label),
+            #                                            len(gt_bboxes_per_img) - np.count_nonzero(label),
+            #                                            np.count_nonzero(~label)))
+
+    scores = np.concatenate(scores)
+    labels = np.concatenate(labels)
+
+    # sort scores in to generate PR curve
+    sorted_indices = np.argsort(-scores)
+    scores = scores[sorted_indices]
+    labels = labels[sorted_indices]
+
+    # true_positives  = labels[sorted_indices]
+    # false_positives = ~ true_positives
+    # recall    = np.cumsum(true_positives) / num_gt
+    # precision = np.cumsum(true_positives) / (np.cumsum(true_positives) + np.cumsum(false_positives))
+    # ap        = compute_average_precision(precision, recall)
+
+    return scores, labels
+
+
+def parse_pascal_voc_annotation(xml_file):
+    """Parse annotation XML file in PASCAL format into a dictionary
+
+    """
+    tree = ET.parse(xml_file)
+    objects = {
+        'classes': [],
+        'bboxes' : [],
+    }
+    for object in tree.findall('object'):
+        bbox = object.find('bndbox')
+        bbox = [int(bbox.find('xmin').text),
+                int(bbox.find('ymin').text),
+                int(bbox.find('xmax').text),
+                int(bbox.find('ymax').text)]
+        objects['classes'].append(object.find('name').text)
+        objects['bboxes'].append(bbox)
+
+    return objects
+
+
+def parse_detection_file(detection_file):
+
+    detections = {}
+    with open(detection_file, 'r') as f:
+        lines      = f.readlines()
+        splitlines = [x.strip().split(' ') for x in lines]
+
+        for line in splitlines:
+            img_id    = line[0]
+            obj_score = float(line[1])
+            obj_bbox  = np.array(line[2:], dtype=np.float)
+
+            if img_id not in detections.keys():
+                detections[img_id] = {
+                    'scores': [obj_score],
+                    'bboxes': [obj_bbox]
+                }
             else:
-                label_dict = parse_label_map(LABEL_MAPS['kitti'])
+                detections[img_id]['scores'].append(obj_score)
+                detections[img_id]['bboxes'].append(obj_bbox)
 
-            # Init Detection Client
-            object_detector = DetectionClient(server, model_name, label_dict, verbose=False)
-
-            # EVALUATE
-            evaluate(img_files, object_detector,
-                     output_dir='./%s/%s' % (OUTPUT, model_name),
-                     threshold=0.3)
-
-            # Stop server
-            print("\nWaiting for last predictions before turning off...")
-            time.sleep(5.0)
-            tf_serving_server.stop()
+    return detections
 
 
-def evaluate(images, detector, output_dir, threshold=0.2,):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    performance = {}
-    for img_path in images:
-
-        img_id = img_path.split('/')[-1]
-        print("Processing img %s" % img_id)
-        img = cv2.imread(img_path)
-        h, w, _ = img.shape
-        boxes, classes, scores = detector.predict(img, img_dtype=np.uint8, timeout=30.0)
-        # Filter out results that is not reach a threshold
-        filtered_outputs = [(box, idx, score) for box, idx, score in zip(boxes, classes, scores)
-                            if (score > threshold) and (idx in ['car'])]
-
-        if zip(*filtered_outputs):
-            boxes, classes, scores = zip(*filtered_outputs)
-            print("Detected {} cars with confidences {}\n".format(len(scores), scores))
-            boxes = [box * np.array([h, w, h, w]) for box in boxes]
-            img = draw_boxes(img, boxes, classes, scores)
-            performance[img_id] = (boxes, classes, scores)
-        else:
-            print("No car was found.\n")
-
-        output_path = os.path.join(output_dir, img_path.split('/')[-1])
-        cv2.imwrite(output_path, img)
-
-    with open(os.path.join(output_dir, '%s_det_val_car.txt' % detector.model), 'w') as f:
-        for img_id in performance.keys():
-            result = performance[img_id]
-            for bbox, cls, score in zip(*result):
-                y1, x1, y2, x2 = bbox
-                f.write('{} {:.6f} {} {} {} {}\n'.format(img_id.split('.')[0], score, int(x1), int(y1), int(x2), int(y2)))
 if __name__ == '__main__':
-    main()
+    _main_()

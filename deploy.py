@@ -1,13 +1,14 @@
-'''Deploy trained model for inference
-This script would optimize a trained model for deployment
-'''
+"""
+Deploy trained model for inference
 
+This script optimizes a trained model by quantizing the weights and converts
+to servable TF Serving Model\
+"""
 from __future__ import print_function
 
 import os
 import tensorflow as tf
 from utils.converter import load_graph_from_pb
-
 # TF Libraries to export model into .pb file
 from tensorflow.python.client import session
 from tensorflow.python.saved_model import signature_constants
@@ -36,6 +37,7 @@ def _main_():
 
     with tf.Session() as sess:
         input_tensor = tf.placeholder(dtype=tf.uint8, shape=(None, None, None, 3), name=input_names)
+
         # ###################
         # load frozen graph
         # ###################
@@ -44,7 +46,7 @@ def _main_():
                                       input_map={'image_tensor': input_tensor},
                                       return_elements=output_names,
                                       name='')
-        outputs = [sess.graph.get_tensor_by_name(ops.name +':0')for ops in outputs]
+        outputs = [sess.graph.get_tensor_by_name(ops.name + ':0')for ops in outputs]
         outputs = dict(zip(output_names, outputs))
 
     # #####################
@@ -90,9 +92,9 @@ def _main_():
 
             detection_signature = (
                     tf.saved_model.signature_def_utils.build_signature_def(
-                            inputs     = tensor_info_inputs,
-                            outputs    = tensor_info_outputs,
-                            method_name= signature_constants.PREDICT_METHOD_NAME))
+                            inputs=tensor_info_inputs,
+                            outputs=tensor_info_outputs,
+                            method_name=signature_constants.PREDICT_METHOD_NAME))
 
             builder.add_meta_graph_and_variables(
                     sess, [tf.saved_model.tag_constants.SERVING],
