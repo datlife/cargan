@@ -1,9 +1,37 @@
 import numpy as np
+import tensorflow as tf
 
 
-def compute_nms(boxes):
+def compute_nms(boxes, scores, iou_thresh):
+    """
+    """
+    bboxes = boxes[..., [1, 0, 3, 2]]  # change to y1, x1, y2, x2
+    kept_indices = tf.image.non_max_suppression(bboxes, scores, max_output_size=200, iou_threshold=iou_thresh)
 
-    return 0.0
+    boxes = tf.gather(bboxes, kept_indices)
+    scores = tf.gather(scores, kept_indices)
+
+    with tf.Session() as sess:
+        boxes, scores = sess.run([boxes, scores])
+
+    return {
+        'bboxes':  boxes[..., [1, 0, 3, 2]],  # change back to x1, y1, x2, y2
+        'scores': scores
+    }
+
+
+def merge_dict(a, b, path=None):
+    "Merge two nested dict into one"
+    if path is None: path = []
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge_dict(a[key], b[key], path + [str(key)])
+            else:  # leaf data
+                a[key] = np.concatenate([a[key], b[key]])
+        else:
+            a[key] = b[key]
+    return a
 
 
 def compute_iou(boxes1, boxes2):

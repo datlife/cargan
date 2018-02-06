@@ -2,6 +2,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 FONT_PATH = './utils/FiraMono-Medium.otf'
+
+
 def draw_boxes(img, bboxes, classes, scores):
     """Draw bounding boxes + class + probabilities for
     an image

@@ -15,7 +15,7 @@ from functools import reduce
 import xml.etree.ElementTree as ET
 from tensorboard.plugins.pr_curve import summary
 
-from utils.ops import compute_iou
+from utils.ops import compute_iou, merge_dict, compute_nms
 from utils.metrics import compute_average_precision
 from utils.visualizer import visualize_boxes_and_labels_on_image_array, encode_image_array_as_png_str
 
@@ -51,27 +51,39 @@ def _main_():
                     log_dir=args.logdir)
 
     # Test ensemble
-    detections = reduce(merge, [parse_detection_file(det) for det in detection_files])
-    detections = {img_id: run_nms(detections[img_id], iou_thresh=0.5) for img_id in detections}
+    detections = reduce(merge_dict, [parse_detection_file(det) for det in detection_files])
+    detections = {img_id: compute_nms(detections[img_id]['bboxes'],
+                                      detections[img_id]['scores'],
+                                      iou_thresh=0.5) for
+                  img_id in detections}
 
     run_eval_on(model_name='ensemble_model',
                 detections=detections,
                 ground_truths=ground_truths,
                 log_dir=args.logdir)
 
-
-def run_eval_on(model_name, detections, ground_truths, log_dir):
-    scores, labels, ap = eval_ap_recall_per_class(ground_truths,
-                                                  detections,
-                                                  iou_threshold=IOU_THRESH)
-    run_name = "IOU={:.2f}::AP={:.2f}::{}".format(IOU_THRESH, ap, model_name)
-    summarize(scores,
-              labels,
-              log_dir, run_name, num_thresholds=NUM_THRESHOLDS)
-
+    # Visualize result
     img_file_pattern = os.path.join(os.path.abspath('./test_data/JPEGImages'), '*.jpg')
     img_files = sorted(glob(img_file_pattern), key=os.path.getctime)
-    visualize_tfimage(img_files, ground_truths, detections, name_tag=model_name, log_dir=log_dir)
+
+    visualize_tfimage(img_files,
+                      ground_truths, detections,
+                      min_confidence=0.2,
+                      name_tag='ensemble_model',
+                      log_dir=args.logdir)
+
+
+def run_eval_on(model_name, detections, ground_truths, log_dir):
+    scores, labels, ap = eval_ap_recall_per_class(
+        ground_truths,
+        detections,
+        iou_threshold=IOU_THRESH)
+
+    summarize(scores,
+              labels,
+              log_dir,
+              run_name="IOU={:.2f}::AP={:.2f}::{}".format(IOU_THRESH, ap, model_name),
+              num_thresholds=NUM_THRESHOLDS)
 
 
 def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
@@ -129,27 +141,20 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
     return scores, labels, ap
 
 
-def visualize_tfimage(image_paths, ground_truths, detections, name_tag, log_dir, global_step=1):
+def visualize_tfimage(image_paths,
+                      ground_truths,
+                      detections,
+                      min_confidence,
+                      name_tag, log_dir, global_step=1):
+    # a hacky way to not create a complete label dict
     category_index = {1: {'id': '2', 'name': 'car'}}
+
+    # Read all images
     for img in image_paths:
         image = np.array(Image.open(img))
         img_id = os.path.basename(img).split('.')[0]
+
         ground_truth_boxes = np.array(ground_truths[img_id]['bboxes'])
-
-        if img_id in detections:
-            bboxes = np.array(detections[img_id]['bboxes'])
-            scores = np.array(detections[img_id]['scores'])
-            classes = ['1'] * len(scores)
-
-            visualize_boxes_and_labels_on_image_array(image,
-                                                      boxes=bboxes[..., [1, 0, 3, 2]],
-                                                      classes=classes,
-                                                      scores=scores,
-                                                      use_normalized_coordinates=False,
-                                                      category_index=category_index,
-                                                      agnostic_mode=True,
-                                                      min_score_thresh=0.3)
-
         visualize_boxes_and_labels_on_image_array(image,
                                                   boxes=ground_truth_boxes[..., [1, 0, 3, 2]],
                                                   classes=None,
@@ -157,15 +162,33 @@ def visualize_tfimage(image_paths, ground_truths, detections, name_tag, log_dir,
                                                   use_normalized_coordinates=False,
                                                   category_index=category_index,
                                                   max_boxes_to_draw=None)
-        summary = tf.Summary(value=[
+
+        if img_id in detections:
+            bboxes = np.array(detections[img_id]['bboxes'])
+            scores = np.array(detections[img_id]['scores'])
+            classes = ['1'] * len(scores)
+            visualize_boxes_and_labels_on_image_array(image,
+                                                      boxes=bboxes[..., [1, 0, 3, 2]],
+                                                      classes=classes,
+                                                      scores=scores,
+                                                      use_normalized_coordinates=False,
+                                                      category_index=category_index,
+                                                      agnostic_mode=True,
+                                                      min_score_thresh=min_confidence)
+        fixed_width = 640
+        new_height = int(float(image.shape[1]) * float(fixed_width / float(image.shape[0])))
+        image = Image.fromarray(image)
+        image.thumbnail((new_height, fixed_width))
+
+        img_summary_op = tf.Summary(value=[
             tf.Summary.Value(
-                tag=name_tag,
+                tag="detection_samples/%s" % name_tag,
                 image=tf.Summary.Image(
                     encoded_image_string=encode_image_array_as_png_str(
                         image)))
         ])
         summary_writer = tf.summary.FileWriter(log_dir)
-        summary_writer.add_summary(summary, global_step)
+        summary_writer.add_summary(img_summary_op, global_step)
         summary_writer.close()
 
 
@@ -238,45 +261,6 @@ def parse_detection_file(detection_file):
                 detections[img_id]['bboxes'].append(obj_bbox)
 
     return detections
-
-
-def merge(a, b, path=None):
-    "merges b into a"
-    if path is None: path = []
-    for key in b:
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            else:  # leaf data
-                a[key] = np.concatenate([a[key], b[key]])
-        else:
-            a[key] = b[key]
-    return a
-
-
-def run_nms(detections, iou_thresh):
-    """
-
-    :param detections: a dict {'bboxes':np.array, 'scores'}
-    :param iou_thresh:
-    :return:
-    """
-    bboxes = detections['bboxes']
-    scores = detections['scores']
-
-    bboxes = bboxes[..., [1, 0, 3, 2]]  # change to y1, x1, y2, x2
-    kept_indices = tf.image.non_max_suppression(bboxes, scores, max_output_size=200, iou_threshold=iou_thresh)
-
-    boxes = tf.gather(bboxes, kept_indices)
-    scores = tf.gather(scores, kept_indices)
-
-    with tf.Session() as sess:
-        boxes, scores = sess.run([boxes, scores])
-
-    return {
-        'bboxes':  boxes[..., [1, 0, 3, 2]],  # change back to x1, y1, x2, y2
-        'scores': scores
-    }
 
 
 if __name__ == '__main__':

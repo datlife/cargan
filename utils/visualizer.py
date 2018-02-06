@@ -1,3 +1,8 @@
+# THIS CODE IS OWNED BY GOOGLE Inc.
+# Reference:
+# https://github.com/tensorflow/models/tree/master/research/object_detection
+
+
 # Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -393,7 +398,7 @@ def visualize_boxes_and_labels_on_image_array(image,
                 if agnostic_mode:
                     box_to_color_map[box] = 'DarkOrange'
                 else:
-                    box_to_color_map[box] = STANDARD_COLORS[1]
+                    box_to_color_map[box] = STANDARD_COLORS[-1]  # Yellow Green
 
     # Draw all boxes onto image.
     for box, color in box_to_color_map.items():
