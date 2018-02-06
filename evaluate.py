@@ -17,8 +17,7 @@ from tensorboard.plugins.pr_curve import summary
 
 from utils.ops import compute_iou
 from utils.metrics import compute_average_precision
-from utils.visualizer import visualize_boxes_and_labels_on_image_array
-
+from utils.visualizer import visualize_boxes_and_labels_on_image_array, encode_image_array_as_png_str
 
 
 parser = argparse.ArgumentParser()
@@ -42,80 +41,37 @@ def _main_():
     annotation_files = sorted(glob(annotation__file_pattern), key=os.path.getctime)
     detection_files  = sorted(glob(detection_file_pattern), key=os.path.getctime)
 
-    # Generate a dictionary for ground truths, whereas:
-    #    key: filename without extension
-    #    values: a list of dict
     ground_truths = {os.path.basename(xml_file).split('.')[0]: parse_pascal_voc_annotation(xml_file)
                      for xml_file in annotation_files}
-
     # Start detection evaluation
-    combined = []
     for idx, detection_file in enumerate(detection_files):
-        detections = parse_detection_file(detection_file)
-        model_name = os.path.basename(detection_file).split('_det')[0]
-
-        scores, labels, ap = eval_ap_recall_per_class(
-            ground_truths,
-            detections,
-            iou_threshold=IOU_THRESH)
-        run_name = "IOU={:.2f}::AP={:.2f}::{}".format(IOU_THRESH, ap, model_name)
-        summarize(scores, labels, args.logdir, run_name, num_thresholds=NUM_THRESHOLDS)
-        combined.append(detections)
+        run_eval_on(model_name=os.path.basename(detection_file).split('_det')[0],
+                    detections=parse_detection_file(detection_file),
+                    ground_truths=ground_truths,
+                    log_dir=args.logdir)
 
     # Test ensemble
-    model_name = 'ensemble_model'
-    detections = reduce(merge, combined)
-    for img_id in detections:
-        detections[img_id] = run_nms(detections[img_id], iou_thresh=0.5)
-    scores, labels, ap = eval_ap_recall_per_class(
-        ground_truths,
-        detections,
-        iou_threshold=IOU_THRESH)
+    detections = reduce(merge, [parse_detection_file(det) for det in detection_files])
+    detections = {img_id: run_nms(detections[img_id], iou_thresh=0.5) for img_id in detections}
 
+    run_eval_on(model_name='ensemble_model',
+                detections=detections,
+                ground_truths=ground_truths,
+                log_dir=args.logdir)
+
+
+def run_eval_on(model_name, detections, ground_truths, log_dir):
+    scores, labels, ap = eval_ap_recall_per_class(ground_truths,
+                                                  detections,
+                                                  iou_threshold=IOU_THRESH)
     run_name = "IOU={:.2f}::AP={:.2f}::{}".format(IOU_THRESH, ap, model_name)
-    summarize(scores, labels, args.logdir, run_name, num_thresholds=NUM_THRESHOLDS)
+    summarize(scores,
+              labels,
+              log_dir, run_name, num_thresholds=NUM_THRESHOLDS)
 
     img_file_pattern = os.path.join(os.path.abspath('./test_data/JPEGImages'), '*.jpg')
     img_files = sorted(glob(img_file_pattern), key=os.path.getctime)
-    for img in img_files:
-        image = np.array(Image.open(img))
-        image_id = os.path.basename(img).split('.')[0]
-
-        bboxes = np.array(detections[img_id]['bboxes'])
-        scores = np.array(detections[img_id]['scores'])
-        classes = ['1'] * len(scores)
-
-        visualize_boxes_and_labels_on_image_array(image,
-                                                  boxes=bboxes,
-                                                  classes=classes,
-                                                  scores=scores,
-                                                  category_index={1: {'id': '2', 'name': 'car'}},
-                                                  min_score_thresh=0.3)
-
-
-def run_nms(detections, iou_thresh):
-    """
-
-    :param detections: a dict {'bboxes':np.array, 'scores'}
-    :param iou_thresh:
-    :return:
-    """
-    bboxes = detections['bboxes']
-    scores = detections['scores']
-
-    bboxes = bboxes[..., [1, 0, 3, 2]]  # change to y1, x1, y2, x2
-    kept_indices = tf.image.non_max_suppression(bboxes, scores, max_output_size=200, iou_threshold=iou_thresh)
-
-    boxes = tf.gather(bboxes, kept_indices)
-    scores = tf.gather(scores, kept_indices)
-
-    with tf.Session() as sess:
-        boxes, scores = sess.run([boxes, scores])
-
-    return {
-        'bboxes':  boxes[..., [1, 0, 3, 2]],  # change back to x1, y1, x2, y2
-        'scores': scores
-    }
+    visualize_tfimage(img_files, ground_truths, detections, name_tag=model_name, log_dir=log_dir)
 
 
 def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
@@ -155,14 +111,6 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
                     detected[idx] = True
             scores.append(np.array(detections[img_id]['scores'], dtype=np.float32))
             labels.append(label)
-            # # For debugging
-            # if img_id == '19':
-            #     np.set_printoptions(precision=2)
-            #     print(iou_matrix)
-            #     print(np.max(iou_matrix, axis=0))
-            #     print("TP {} || FN {} || FP {}".format(np.count_nonzero(label),
-            #                                            len(gt_bboxes_per_img) - np.count_nonzero(label),
-            #                                            np.count_nonzero(~label)))
 
     scores = np.concatenate(scores)
     labels = np.concatenate(labels)
@@ -179,6 +127,46 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
     ap        = compute_average_precision(precision, recall)
 
     return scores, labels, ap
+
+
+def visualize_tfimage(image_paths, ground_truths, detections, name_tag, log_dir, global_step=1):
+    category_index = {1: {'id': '2', 'name': 'car'}}
+    for img in image_paths:
+        image = np.array(Image.open(img))
+        img_id = os.path.basename(img).split('.')[0]
+        ground_truth_boxes = np.array(ground_truths[img_id]['bboxes'])
+
+        if img_id in detections:
+            bboxes = np.array(detections[img_id]['bboxes'])
+            scores = np.array(detections[img_id]['scores'])
+            classes = ['1'] * len(scores)
+
+            visualize_boxes_and_labels_on_image_array(image,
+                                                      boxes=bboxes[..., [1, 0, 3, 2]],
+                                                      classes=classes,
+                                                      scores=scores,
+                                                      use_normalized_coordinates=False,
+                                                      category_index=category_index,
+                                                      agnostic_mode=True,
+                                                      min_score_thresh=0.3)
+
+        visualize_boxes_and_labels_on_image_array(image,
+                                                  boxes=ground_truth_boxes[..., [1, 0, 3, 2]],
+                                                  classes=None,
+                                                  scores=None,
+                                                  use_normalized_coordinates=False,
+                                                  category_index=category_index,
+                                                  max_boxes_to_draw=None)
+        summary = tf.Summary(value=[
+            tf.Summary.Value(
+                tag=name_tag,
+                image=tf.Summary.Image(
+                    encoded_image_string=encode_image_array_as_png_str(
+                        image)))
+        ])
+        summary_writer = tf.summary.FileWriter(log_dir)
+        summary_writer.add_summary(summary, global_step)
+        summary_writer.close()
 
 
 def summarize(scores, labels, logdir, run_name, num_thresholds):
@@ -202,7 +190,7 @@ def summarize(scores, labels, logdir, run_name, num_thresholds):
     with tf.Session() as session:
         writer.add_summary(session.run(merged_op), global_step=1)
 
-    print('Save summary in %s\n' % event_dir)
+    print('Saved summary in %s\n' % event_dir)
     tf.reset_default_graph()
     writer.close()
 
@@ -264,6 +252,32 @@ def merge(a, b, path=None):
         else:
             a[key] = b[key]
     return a
+
+
+def run_nms(detections, iou_thresh):
+    """
+
+    :param detections: a dict {'bboxes':np.array, 'scores'}
+    :param iou_thresh:
+    :return:
+    """
+    bboxes = detections['bboxes']
+    scores = detections['scores']
+
+    bboxes = bboxes[..., [1, 0, 3, 2]]  # change to y1, x1, y2, x2
+    kept_indices = tf.image.non_max_suppression(bboxes, scores, max_output_size=200, iou_threshold=iou_thresh)
+
+    boxes = tf.gather(bboxes, kept_indices)
+    scores = tf.gather(scores, kept_indices)
+
+    with tf.Session() as sess:
+        boxes, scores = sess.run([boxes, scores])
+
+    return {
+        'bboxes':  boxes[..., [1, 0, 3, 2]],  # change back to x1, y1, x2, y2
+        'scores': scores
+    }
+
 
 if __name__ == '__main__':
     _main_()

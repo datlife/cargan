@@ -377,7 +377,7 @@ def visualize_boxes_and_labels_on_image_array(image,
             if keypoints is not None:
                 box_to_keypoints_map[box].extend(keypoints[i])
             if scores is None:
-                box_to_color_map[box] = 'black'
+                box_to_color_map[box] = 'red'
             else:
                 if not agnostic_mode:
                     if classes[i] in category_index.keys():
@@ -419,5 +419,5 @@ def visualize_boxes_and_labels_on_image_array(image,
                 image,
                 box_to_keypoints_map[box],
                 color=color,
-                radius=line_thickness / 2,
+                radius=int(line_thickness / 2),
                 use_normalized_coordinates=use_normalized_coordinates)
