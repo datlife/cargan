@@ -13,8 +13,8 @@ TEST_DATA  = './test_data/JPEGImages'
 OUTPUT_DIR = './test_data/Main/'
 
 DETECTORS = [
-    'faster_rcnn_resnet101_kitti',
     'faster_rcnn_inception_resnet_v2_atrous_coco',
+    'faster_rcnn_nas_coco',
     'ssd_inception_v2_coco',
     'rfcn_resnet101_coco'
 ]
@@ -31,26 +31,22 @@ def main():
     glob_pattern = os.path.join(os.path.abspath(TEST_DATA), '*.jpg')
     img_files = sorted(glob(glob_pattern), key=os.path.getctime)
 
-    for model_name in ['yolov2']:
+    for model_name in DETECTORS:
         # Init Detection Server
         model_path = os.path.join(sys.path[0], 'detector', model_name)
         tf_serving_server = DetectionServer(model=model_name, model_path=model_path).start()
-
         # Wait for server to start
         time.sleep(5.0)
         if tf_serving_server.is_running():
             print("\n\nInitialized TF Serving at {} with model {}".format(server, model_name))
-            # Look up proper label map file
-            label_dict = parse_label_map(LABEL_MAPS['coco'] if 'coco' in model_name else LABEL_MAPS['kitti'])
 
+            label_dict = parse_label_map(LABEL_MAPS['coco'] if 'coco' in model_name else LABEL_MAPS['kitti'])
             object_detector = DetectionClient(server, model_name, label_dict, verbose=False)
 
-            # EVALUATE
             evaluate(img_files, object_detector,
                      output_dir='./%s/%s' % (OUTPUT_DIR, model_name),
-                     threshold=0.3)
+                     threshold=0.001)
 
-            # Stop server
             print("\nWaiting for last predictions before turning off...")
             time.sleep(5.0)
             tf_serving_server.stop()
