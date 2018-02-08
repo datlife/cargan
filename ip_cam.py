@@ -1,6 +1,6 @@
 import time
 import cv2
-from utils.IPCam import IPCam
+from cargan.utils.IPCam import IPCam
 import multiprocessing as mp
 
 IP_CAMS = ['http://138.26.105.144:80/mjpg/video.mjpg?COUNTER',
@@ -78,6 +78,7 @@ def func(tuple_args):
     except Exception as e:
         print(e, "ID: %s IP: %s" % (idx, ip))
         pass
+
 
 if __name__ == '__main__':
     main()

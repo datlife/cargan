@@ -7,31 +7,29 @@ Assumptions:
 """
 import os
 import argparse
-from PIL import Image
-import numpy as np
 from glob import glob
+
+import numpy as np
+from PIL import Image
 import tensorflow as tf
+
 from functools import reduce
 import xml.etree.ElementTree as ET
 from tensorboard.plugins.pr_curve import summary
 
-from utils.ops import compute_iou, merge_dict, compute_nms
-from utils.metrics import compute_average_precision
-from utils.visualizer import visualize_boxes_and_labels_on_image_array, encode_image_array_as_png_str
+from cargan.utils.metrics import compute_average_precision
+from cargan.utils.ops import compute_iou, merge_dict, compute_nms
+from cargan.utils.visualizer import visualize_boxes_and_labels_on_image_array, encode_image_array_as_png_str
 
 
 parser = argparse.ArgumentParser()
-
-parser.add_argument('--annotation_dir', default='./test_data/Annotations')
-
 parser.add_argument('--detection_dir', default='./test_data/Main')
-
+parser.add_argument('--annotation_dir', default='./test_data/Annotations')
 parser.add_argument('--logdir', default='/tmp/cargan',
                     help='Directory stores Tensorboard log')
 
 IOU_THRESH = 0.5
 NUM_THRESHOLDS = 100
-
 
 def _main_():
     args = parser.parse_args()
@@ -40,9 +38,13 @@ def _main_():
 
     annotation_files = sorted(glob(annotation__file_pattern), key=os.path.getctime)
     detection_files  = sorted(glob(detection_file_pattern), key=os.path.getctime)
-
     ground_truths = {os.path.basename(xml_file).split('.')[0]: parse_pascal_voc_annotation(xml_file)
                      for xml_file in annotation_files}
+
+    # For visualization
+    img_file_pattern = os.path.join(os.path.abspath('./test_data/JPEGImages'), '*.jpg')
+    img_files = sorted(glob(img_file_pattern), key=os.path.getctime)
+
     # Start detection evaluation
     for idx, detection_file in enumerate(detection_files):
         run_eval_on(model_name=os.path.basename(detection_file).split('_det')[0],
@@ -63,9 +65,6 @@ def _main_():
                 log_dir=args.logdir)
 
     # Visualize result
-    img_file_pattern = os.path.join(os.path.abspath('./test_data/JPEGImages'), '*.jpg')
-    img_files = sorted(glob(img_file_pattern), key=os.path.getctime)
-
     visualize_tfimage(img_files,
                       ground_truths, detections,
                       min_confidence=0.2,
@@ -74,11 +73,11 @@ def _main_():
 
 
 def run_eval_on(model_name, detections, ground_truths, log_dir):
+
     scores, labels, ap = eval_ap_recall_per_class(
         ground_truths,
         detections,
         iou_threshold=IOU_THRESH)
-
     summarize(scores,
               labels,
               log_dir,
@@ -106,10 +105,14 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
     for img_id in ground_truths.keys():
         gt_bboxes_per_img   = np.array(ground_truths[img_id]['bboxes'])
         num_gt += len(gt_bboxes_per_img)
-
+        width, height = ground_truths[img_id]['width'], ground_truths[img_id]['height']
         # If there is detected objects
         if img_id in detections.keys():
             pred_bboxes_per_img = np.array(detections[img_id]['bboxes'])
+            print(pred_bboxes_per_img)
+            # scale to absolute size
+            pred_bboxes_per_img = pred_bboxes_per_img * np.array([height, width, height, width])
+            print(pred_bboxes_per_img)
             iou_matrix = compute_iou(gt_bboxes_per_img, pred_bboxes_per_img)
 
             label = np.zeros(len(pred_bboxes_per_img), dtype=bool)
@@ -223,14 +226,15 @@ def parse_pascal_voc_annotation(xml_file):
 
     """
     tree = ET.parse(xml_file)
-    objects = {
-        'classes': [],
-        'bboxes' : [],
-    }
-
-    img_size = tree.findall('size')
+    img_size = tree.find('size')
     width, height = int(img_size.find('width').text),  int(img_size.find('height').text)
 
+    objects = {
+        'classes': [],
+        'bboxes': [],
+        'width': width,
+        'height': height
+    }
     for object in tree.findall('object'):
         bbox = object.find('bndbox')
         bbox = [int(bbox.find('xmin').text),
@@ -238,7 +242,6 @@ def parse_pascal_voc_annotation(xml_file):
                 int(bbox.find('xmax').text),
                 int(bbox.find('ymax').text)]
 
-        bbox =
         objects['classes'].append(object.find('name').text)
         objects['bboxes'].append(bbox)
 

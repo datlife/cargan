@@ -5,9 +5,9 @@ import cv2
 import numpy as np
 from glob import glob
 
-from utils.painter import draw_boxes
-from utils.parser import parse_label_map
-from utils.tfserving import DetectionClient, DetectionServer
+from cargan.utils.painter import draw_boxes
+from cargan.utils.parser import parse_label_map
+from cargan.utils.tfserving import DetectionClient, DetectionServer
 
 TEST_DATA  = './test_data/JPEGImages'
 OUTPUT_DIR = './test_data/Main/'
@@ -76,8 +76,10 @@ def evaluate(images, detector, output_dir, threshold=0.2, fixed_width=600):
         if zip(*filtered_outputs):
             boxes, classes, scores = zip(*filtered_outputs)
             print("Detected {} cars with confidences {}\n".format(len(scores), scores))
+
             abs_size_boxes = [box * np.array([h, w, h, w]) for box in boxes]
             img = draw_boxes(img, abs_size_boxes, classes, scores)
+
             performance[img_id] = (boxes, classes, scores)
         else:
             print("No car was found.\n")
@@ -91,5 +93,7 @@ def evaluate(images, detector, output_dir, threshold=0.2, fixed_width=600):
             for bbox, cls, score in zip(*result):
                 y1, x1, y2, x2 = bbox
                 f.write('{} {:.6f} {} {} {} {}\n'.format(img_id.split('.')[0], score, int(x1), int(y1), int(x2), int(y2)))
+
+
 if __name__ == '__main__':
     main()

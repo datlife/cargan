@@ -8,7 +8,7 @@ from __future__ import print_function
 
 import os
 import tensorflow as tf
-from utils.converter import load_graph_from_pb
+from cargan.utils.converter import load_graph_from_pb
 # TF Libraries to export model into .pb file
 from tensorflow.python.client import session
 from tensorflow.python.saved_model import signature_constants
