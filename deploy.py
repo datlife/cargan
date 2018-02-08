@@ -21,10 +21,10 @@ def _main_():
     # Setup export path
     ###################
     # @TODO: create Argument Parse
-    model_filename = './detector/faster_rcnn_nas_coco/frozen_inference_graph.pb'
+    model_filename = './detector/faster_rcnn_inception_resnet_v2_atrous_coco/frozen_inference_graph.pb'
 
     version    = 1
-    model_name = 'faster_rcnn_nas_coco'
+    model_name = 'faster_rcnn_inception_resnet_v2_atrous_coco'
     base_dir   = './detector'
     output_dir = os.path.join(base_dir, model_name)
     export_path = os.path.join(output_dir, str(version))

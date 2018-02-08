@@ -23,6 +23,8 @@ LABEL_MAPS = {
     'kitti': './detector/label_maps/kitti.pbtxt',
 }
 
+# @TODO: fail gracefully kill -9 $(lsof -t -i:9000 -sTCP:LISTEN)
+
 
 def main():
     server = 'localhost:9000'
@@ -41,7 +43,7 @@ def main():
             print("\n\nInitialized TF Serving at {} with model {}".format(server, model_name))
 
             label_dict = parse_label_map(LABEL_MAPS['coco'] if 'coco' in model_name else LABEL_MAPS['kitti'])
-            object_detector = DetectionClient(server, model_name, label_dict, verbose=False)
+            object_detector = DetectionClient(server, model_name, label_dict, verbose=True)
 
             evaluate(img_files, object_detector,
                      output_dir='./%s/%s' % (OUTPUT_DIR, model_name),
@@ -52,7 +54,7 @@ def main():
             tf_serving_server.stop()
 
 
-def evaluate(images, detector, output_dir, threshold=0.2,):
+def evaluate(images, detector, output_dir, threshold=0.2, fixed_width=600):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -60,9 +62,12 @@ def evaluate(images, detector, output_dir, threshold=0.2,):
     for img_path in images:
 
         img_id = img_path.split('/')[-1]
-        print("Processing img %s" % img_id)
         img = cv2.imread(img_path)
+        # resize
+        new_height = int(float(img.shape[1]) * float(fixed_width / float(img.shape[0])))
+        img = cv2.resize(img, (new_height, fixed_width), cv2.INTER_CUBIC)
         h, w, _ = img.shape
+        print("Predicting img {} | shape {}".format(img_id, img.shape))
         boxes, classes, scores = detector.predict(img, img_dtype=np.uint8, timeout=30.0)
         # Filter out results that is not reach a threshold
         filtered_outputs = [(box, idx, score) for box, idx, score in zip(boxes, classes, scores)
@@ -71,8 +76,8 @@ def evaluate(images, detector, output_dir, threshold=0.2,):
         if zip(*filtered_outputs):
             boxes, classes, scores = zip(*filtered_outputs)
             print("Detected {} cars with confidences {}\n".format(len(scores), scores))
-            boxes = [box * np.array([h, w, h, w]) for box in boxes]
-            img = draw_boxes(img, boxes, classes, scores)
+            abs_size_boxes = [box * np.array([h, w, h, w]) for box in boxes]
+            img = draw_boxes(img, abs_size_boxes, classes, scores)
             performance[img_id] = (boxes, classes, scores)
         else:
             print("No car was found.\n")

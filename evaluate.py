@@ -227,12 +227,18 @@ def parse_pascal_voc_annotation(xml_file):
         'classes': [],
         'bboxes' : [],
     }
+
+    img_size = tree.findall('size')
+    width, height = int(img_size.find('width').text),  int(img_size.find('height').text)
+
     for object in tree.findall('object'):
         bbox = object.find('bndbox')
         bbox = [int(bbox.find('xmin').text),
                 int(bbox.find('ymin').text),
                 int(bbox.find('xmax').text),
                 int(bbox.find('ymax').text)]
+
+        bbox =
         objects['classes'].append(object.find('name').text)
         objects['bboxes'].append(bbox)
 
