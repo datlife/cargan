@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-FONT_PATH = './utils/FiraMono-Medium.otf'
+FONT_PATH = './cargan/utils/FiraMono-Medium.otf'
 
 
 def draw_boxes(img, bboxes, classes, scores):

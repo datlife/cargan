@@ -7,44 +7,45 @@ Assumptions:
 """
 import os
 import argparse
+import functools
 from glob import glob
+from PIL import Image
+import xml.etree.ElementTree as ET
 
 import numpy as np
-from PIL import Image
 import tensorflow as tf
-
-from functools import reduce
-import xml.etree.ElementTree as ET
 from tensorboard.plugins.pr_curve import summary
+from sklearn.metrics import average_precision_score
 
-from cargan.utils.metrics import compute_average_precision
 from cargan.utils.ops import compute_iou, merge_dict, compute_nms
 from cargan.utils.visualizer import visualize_boxes_and_labels_on_image_array, encode_image_array_as_png_str
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--detection_dir', default='./test_data/Main')
+
 parser.add_argument('--annotation_dir', default='./test_data/Annotations')
+
+parser.add_argument('--detection_dir', default='./test_data/Main')
+
 parser.add_argument('--logdir', default='/tmp/cargan',
                     help='Directory stores Tensorboard log')
 
 IOU_THRESH = 0.5
 NUM_THRESHOLDS = 100
+FIXED_MIN_WIDTH = 360
+
 
 def _main_():
     args = parser.parse_args()
+
     annotation__file_pattern = os.path.join(os.path.abspath(args.annotation_dir), '*.xml')
     detection_file_pattern   = os.path.join(os.path.abspath(args.detection_dir), '*.txt')
 
     annotation_files = sorted(glob(annotation__file_pattern), key=os.path.getctime)
     detection_files  = sorted(glob(detection_file_pattern), key=os.path.getctime)
+
     ground_truths = {os.path.basename(xml_file).split('.')[0]: parse_pascal_voc_annotation(xml_file)
                      for xml_file in annotation_files}
-
-    # For visualization
-    img_file_pattern = os.path.join(os.path.abspath('./test_data/JPEGImages'), '*.jpg')
-    img_files = sorted(glob(img_file_pattern), key=os.path.getctime)
-
     # Start detection evaluation
     for idx, detection_file in enumerate(detection_files):
         run_eval_on(model_name=os.path.basename(detection_file).split('_det')[0],
@@ -53,11 +54,14 @@ def _main_():
                     log_dir=args.logdir)
 
     # Test ensemble
-    detections = reduce(merge_dict, [parse_detection_file(det) for det in detection_files])
+    detections = functools.reduce(merge_dict, [parse_detection_file(det) for det in detection_files])
+    sess = tf.Session()
     detections = {img_id: compute_nms(detections[img_id]['bboxes'],
                                       detections[img_id]['scores'],
-                                      iou_thresh=0.5) for
-                  img_id in detections}
+                                      iou_thresh=0.5,
+                                      session=sess)
+                  for img_id in detections}
+    sess.close()
 
     run_eval_on(model_name='ensemble_model',
                 detections=detections,
@@ -65,19 +69,22 @@ def _main_():
                 log_dir=args.logdir)
 
     # Visualize result
+    img_file_pattern = os.path.join(os.path.abspath('./test_data/JPEGImages'), '*.jpg')
+    img_files = sorted(glob(img_file_pattern), key=os.path.getctime)
+
     visualize_tfimage(img_files,
                       ground_truths, detections,
-                      min_confidence=0.2,
+                      min_confidence=0.1,
                       name_tag='ensemble_model',
                       log_dir=args.logdir)
 
 
 def run_eval_on(model_name, detections, ground_truths, log_dir):
-
     scores, labels, ap = eval_ap_recall_per_class(
         ground_truths,
         detections,
         iou_threshold=IOU_THRESH)
+
     summarize(scores,
               labels,
               log_dir,
@@ -105,18 +112,16 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
     for img_id in ground_truths.keys():
         gt_bboxes_per_img   = np.array(ground_truths[img_id]['bboxes'])
         num_gt += len(gt_bboxes_per_img)
-        width, height = ground_truths[img_id]['width'], ground_truths[img_id]['height']
+
         # If there is detected objects
         if img_id in detections.keys():
             pred_bboxes_per_img = np.array(detections[img_id]['bboxes'])
-            print(pred_bboxes_per_img)
-            # scale to absolute size
-            pred_bboxes_per_img = pred_bboxes_per_img * np.array([height, width, height, width])
-            print(pred_bboxes_per_img)
-            iou_matrix = compute_iou(gt_bboxes_per_img, pred_bboxes_per_img)
 
+            iou_matrix = compute_iou(gt_bboxes_per_img, pred_bboxes_per_img)
+            np.set_printoptions(precision=2)
             label = np.zeros(len(pred_bboxes_per_img), dtype=bool)
             detected = [False] * iou_matrix.shape[0]
+
             # Determine whether the detection is a True/False positive
             for col in range(iou_matrix.shape[1]):
                 good_detections = iou_matrix[..., col] >= iou_threshold
@@ -124,6 +129,7 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
                 if np.count_nonzero(good_detections) > 0.0 and detected[idx] is False:
                     label[col] = 1.0     # mark as True Positive
                     detected[idx] = True
+
             scores.append(np.array(detections[img_id]['scores'], dtype=np.float32))
             labels.append(label)
 
@@ -135,11 +141,7 @@ def eval_ap_recall_per_class(ground_truths, detections, iou_threshold=0.5):
     scores = scores[sorted_indices]
     labels = labels[sorted_indices]
 
-    true_positives  = labels
-    false_positives = (1.0 - true_positives)
-    recall    = np.cumsum(true_positives) / num_gt
-    precision = np.cumsum(true_positives) / (np.cumsum(true_positives) + np.cumsum(false_positives))
-    ap        = compute_average_precision(precision, recall)
+    ap = average_precision_score(labels, scores)
 
     return scores, labels, ap
 
@@ -178,7 +180,7 @@ def visualize_tfimage(image_paths,
                                                       category_index=category_index,
                                                       agnostic_mode=True,
                                                       min_score_thresh=min_confidence)
-        fixed_width = 640
+        fixed_width = FIXED_MIN_WIDTH
         new_height = int(float(image.shape[1]) * float(fixed_width / float(image.shape[0])))
         image = Image.fromarray(image)
         image.thumbnail((new_height, fixed_width))
@@ -197,14 +199,14 @@ def visualize_tfimage(image_paths,
 
 def summarize(scores, labels, logdir, run_name, num_thresholds):
     summary.op(
-            tag='%s' % run_name.split('::')[-1],
+            name='%s' % run_name.split('::')[-1],
             labels=tf.cast(labels, tf.bool),
             predictions=tf.cast(scores, tf.float32),
             num_thresholds=num_thresholds,
             display_name='PR Curve',
     )
     summary.op(
-            tag='.summary_by_iou/%s' % run_name.split('::')[0].split('=')[-1],
+            name='.summary_by_iou/%s' % run_name.split('::')[0].split('=')[-1],
             labels=tf.cast(labels, tf.bool),
             predictions=tf.cast(scores, tf.float32),
             num_thresholds=num_thresholds,
@@ -226,14 +228,9 @@ def parse_pascal_voc_annotation(xml_file):
 
     """
     tree = ET.parse(xml_file)
-    img_size = tree.find('size')
-    width, height = int(img_size.find('width').text),  int(img_size.find('height').text)
-
     objects = {
         'classes': [],
-        'bboxes': [],
-        'width': width,
-        'height': height
+        'bboxes' : [],
     }
     for object in tree.findall('object'):
         bbox = object.find('bndbox')
@@ -241,7 +238,6 @@ def parse_pascal_voc_annotation(xml_file):
                 int(bbox.find('ymin').text),
                 int(bbox.find('xmax').text),
                 int(bbox.find('ymax').text)]
-
         objects['classes'].append(object.find('name').text)
         objects['bboxes'].append(bbox)
 

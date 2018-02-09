@@ -57,12 +57,12 @@ class DetectionClient(object):
         classes = result.outputs['detection_classes'].float_val[:num_detections]
         scores = result.outputs['detection_scores'].float_val[:num_detections]
         boxes = result.outputs['detection_boxes'].float_val[:num_detections * 4]
-        classes = [self.label_dict[int(idx)] if idx in self.label_dict.keys() else -1 for idx in classes ]
+        classes = [self.label_dict[int(idx)] if idx in self.label_dict.keys() else -1 for idx in classes]
         boxes = [boxes[i:i + 4] for i in range(0, len(boxes), 4)]
         if self.verbose:
             print("Number of detections: %s" % len(classes))
             print("Server Prediction in {:.3f} ms || Total {:.3} ms".format(1000*(time.time() - pred),
-                                                                              1000*(time.time() - start)))
+                                                                            1000*(time.time() - start)))
 
         return boxes, classes, scores
 

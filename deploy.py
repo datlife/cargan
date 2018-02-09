@@ -21,11 +21,11 @@ def _main_():
     # Setup export path
     ###################
     # @TODO: create Argument Parse
-    model_filename = './detector/faster_rcnn_inception_resnet_v2_atrous_coco/frozen_inference_graph.pb'
+    base_dir   = './cargan/detector'
+    model_filename = './cargan/detector/faster_rcnn_inception_resnet_v2_atrous_coco/frozen_inference_graph.pb'
 
     version    = 1
     model_name = 'faster_rcnn_inception_resnet_v2_atrous_coco'
-    base_dir   = './detector'
     output_dir = os.path.join(base_dir, model_name)
     export_path = os.path.join(output_dir, str(version))
 
@@ -70,7 +70,7 @@ def _main_():
         tf.import_graph_def(quantized_graph, name='')
 
         # Optimizing graph
-        rewrite_options = rewriter_config_pb2.RewriterConfig(optimize_tensor_layout=True)
+        rewrite_options = rewriter_config_pb2.RewriterConfig(layout_optimizer=True)
         rewrite_options.optimizers.append('pruning')
         rewrite_options.optimizers.append('constfold')
         rewrite_options.optimizers.append('layout')

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def compute_nms(boxes, scores, iou_thresh):
+def compute_nms(boxes, scores, session, iou_thresh):
     """
     """
     bboxes = boxes[..., [1, 0, 3, 2]]  # change to y1, x1, y2, x2
@@ -11,8 +11,7 @@ def compute_nms(boxes, scores, iou_thresh):
     boxes = tf.gather(bboxes, kept_indices)
     scores = tf.gather(scores, kept_indices)
 
-    with tf.Session() as sess:
-        boxes, scores = sess.run([boxes, scores])
+    boxes, scores = session.run([boxes, scores])
 
     return {
         'bboxes':  boxes[..., [1, 0, 3, 2]],  # change back to x1, y1, x2, y2
