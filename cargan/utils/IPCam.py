@@ -18,14 +18,14 @@ class IPCam(object):
     def __init__(self, ip):
         self.ip = ip
 
-    def get_sequence(self, sequence_len):
+    def get_sequence(self, sequence_len, timeout=5.0):
         seq = []
         for i in range(sequence_len):
-            seq.append(self.get_frame())
+            seq.append(self.get_frame(timeout))
         return seq
 
-    def get_frame(self):
-        stream = urltool.urlopen(self.ip, timeout=5.0)
+    def get_frame(self, timeout):
+        stream = urltool.urlopen(self.ip, timeout=timeout)
 
         if stream is None:
             return None
@@ -42,19 +42,5 @@ class IPCam(object):
 
                 frame = cv2.imdecode(img_arr, 1)
                 return frame
-    #
-    # def _validate_ip(self, ip):
-    #     correct = False
-    #     try:
-    #         stream = urltool.urlopen(ip)
-    #         correct = True
-    #     except urltool.HTTPError as e:
-    #         print("Website does not reachable")
-    #         pass
-    #
-    #     except urltool.URLError as e:
-    #         print("\nThis website does not exist. %s\n" %ip)
-    #         pass
-    #
-    #     return correct
+
 

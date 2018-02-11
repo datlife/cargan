@@ -1,5 +1,6 @@
 import re
 import csv
+import os
 from itertools import islice
 
 import numpy as np
@@ -65,3 +66,21 @@ def parse_label_map(label_map_path):
         label_map_dict = {int(item[0]): item[1] for item in result}
 
         return label_map_dict
+
+
+def explore(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
+    alld = {'': {}}
+
+    for dirpath, dirnames, filenames in os.walk(starting_path):
+        d = alld
+        dirpath = dirpath[len(starting_path):]
+        for subd in dirpath.split(os.sep):
+            based = d
+            d = d[subd]
+        if dirnames:
+            for dn in dirnames:
+                d[dn] = {}
+        else:
+            based[subd] = ['.'+ os.path.join(dirpath, f) for f in filenames if f.split('.')[-1] in file_extensions]
+
+    return alld['']

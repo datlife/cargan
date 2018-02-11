@@ -24,9 +24,7 @@ from cargan.utils.visualizer import visualize_boxes_and_labels_on_image_array, e
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--annotation_dir', default='./test_data/Annotations')
-
 parser.add_argument('--detection_dir', default='./test_data/Main')
-
 parser.add_argument('--logdir', default='/tmp/cargan',
                     help='Directory stores Tensorboard log')
 
@@ -46,6 +44,7 @@ def _main_():
 
     ground_truths = {os.path.basename(xml_file).split('.')[0]: parse_pascal_voc_annotation(xml_file)
                      for xml_file in annotation_files}
+
     # Start detection evaluation
     for idx, detection_file in enumerate(detection_files):
         run_eval_on(model_name=os.path.basename(detection_file).split('_det')[0],

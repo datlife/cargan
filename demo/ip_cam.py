@@ -1,7 +1,7 @@
 import time
 import cv2
-from cargan.utils.IPCam import IPCam
 import multiprocessing as mp
+from cargan.utils.IPCam import IPCam
 
 IP_CAMS = ['http://138.26.105.144:80/mjpg/video.mjpg?COUNTER',
            'http://74.78.100.54:80/mjpg/video.mjpg?COUNTER',
