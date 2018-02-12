@@ -15,7 +15,8 @@ from grpc.beta import implementations
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2
 
-UNIX_COMMAND = "tensorflow_model_server --port={} --model_name={} --model_base_path={}"
+UNIX_COMMAND = "tensorflow_model_server --port={} --model_name={} --model_base_path={} \
+                --per_process_gpu_memory_fraction={}"
 
 
 class DetectionClient(object):
@@ -63,41 +64,6 @@ class DetectionClient(object):
             print("Number of detections: %s" % len(classes))
             print("Server Prediction in {:.3f} ms || Total {:.3} ms".format(1000*(time.time() - pred),
                                                                             1000*(time.time() - start)))
-
-        return boxes, classes, scores
-
-    def batch_predict(self, images, img_dtype=tf.uint8, timeout=20.0):
-        request = predict_pb2.PredictRequest()
-
-        start = time.time()
-        # image = np.expand_dims(image, axis=0)
-
-        request.inputs['inputs'].CopyFrom(tf.make_tensor_proto(images,
-                                                               dtype=img_dtype,
-                                                               shape=[len(images)]))
-        request.model_spec.name = self.model
-        request.model_spec.signature_name = 'predict_images'
-
-        pred = time.time()
-        result = self.stub.Predict(request, timeout)  # 20 secs timeout
-
-        if self.model == 'detector':
-            num_detections = -1
-        else:
-            num_detections = int(result.outputs['num_detections'].float_val[0])
-
-        classes = result.outputs['detection_classes'].float_val[:num_detections]
-        scores = result.outputs['detection_scores'].float_val[:num_detections]
-        boxes = result.outputs['detection_boxes'].float_val[:num_detections * 4]
-        classes = [self.label_dict[int(idx)] if idx in self.label_dict.keys() else -1 for idx in classes ]
-        boxes = [boxes[i:i + 4] for i in range(0, len(boxes), 4)]
-        if self.verbose:
-            print(result.shape)
-
-            print("Number of detections: %s" % len(classes))
-            print("Server Prediction in {:.3f} ms || Total {:.3} ms".format(1000*(time.time() - pred),
-                                                                              1000*(time.time() - start)))
-
         return boxes, classes, scores
 
 
@@ -107,7 +73,7 @@ class DetectionServer(object):
     This object will manage turning on/off server
     """
 
-    def __init__(self, model, model_path, port=9000):
+    def __init__(self, model, model_path, port=9000, per_process_gpu_memory_fraction=0.0):
         """
         Args:
           model: name of detection model -
@@ -120,6 +86,7 @@ class DetectionServer(object):
         self.model_path = model_path
         self.model = model
         self.port = port
+        self.gpu_mem = per_process_gpu_memory_fraction
 
     def is_running(self):
         return self.running
@@ -137,7 +104,8 @@ class DetectionServer(object):
                 self.server = subprocess.Popen(UNIX_COMMAND.format(
                     self.port,
                     self.model,
-                    self.model_path),
+                    self.model_path,
+                    self.gpu_mem),
                     stdin=subprocess.PIPE, shell=True)
                 print("Serving Server is started at PID %s\n" % self.server.pid)
                 self.running = True

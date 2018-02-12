@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    {%if title%}
+    <title>{{title}}</title>
+    {%else%}
+    <title>Overview of CarGan Dataset</title>
+    {%endif%}
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" crossorigin="anonymous"></script>
+
+    <style type="text/css">
+        .Gallery .Video .Object .Sequence {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            padding: 0 0 2em 0;
+        }
+
+        .Gallery .Video .Sequence:nth-child(even) {
+            background: #cccc;
+        }
+        img {
+            width: 100%;
+        }
+
+        img:hover {
+            z-index: 3;
+            transform: scale(2.0); /* (150% zoom - Note: if the zoom is too large, it will go outside of the viewport) */
+        }
+
+        .Gallery h3 {
+            text-align: center;
+        }
+        .Gallery h4{
+            border-bottom: 0.05em solid black;
+        }
+        .Gallery .Video {
+            padding: 0em 0em 2em 0em;
+        }
+        .pagination {
+           justify-content: center;
+        }
+        .pagination-page-info {
+            align-content: center;
+            padding: .6em;
+            padding-left: 0;
+            width: 40em;
+            margin: .5em;
+            margin-left: 0;
+            font-size: 12px;
+        }
+        .pagination-page-info b {
+            color: black;
+            background: #6aa6ed;
+            font-size: 150%;
+        }
+    </style>
+</head>
+<body>
+<div class='Gallery container-fluid'>
+    <h3> Dataset Overview </h3>
+    {% block content %} {%endblock %}
+</div>
+</body>
+</html>

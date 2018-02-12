@@ -1,3 +1,7 @@
+"""
+This script loads `insec_cams.tsv` and download available videos into `IPCam` directory.
+"""
+
 import os
 import re
 import cv2
@@ -14,7 +18,7 @@ from cargan.utils.IPCam import IPCam
 import sys
 from jinja2 import Environment, FileSystemLoader
 
-DATASET = 'insec_cams.tsv'
+DATASET = 'insecam_traffic.tsv'
 DEFAULT_DIR = './IPCam'
 DEFAULT_SEQ = 40
 CPU = 4
@@ -26,7 +30,7 @@ def _main_():
     _ = df.pop('Notes')
     df = df.sort_values(by=['current_lighting'], axis=0, ascending=False)
     df = df.reset_index(drop=True)
-    df = df[df.current_lighting >= 0.1]
+    # df = df[df.current_lighting >= 0.1]
     print("Number of IP Cameras: %s" % len(df))
 
     pool = mp.Pool(CPU)

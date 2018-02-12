@@ -1,42 +1,32 @@
-import os
-import sys
-from glob import glob
-from flask import Flask, render_template
-from jinja2 import Environment, FileSystemLoader
+import flask
+from flask_paginate import Pagination, get_page_args
+from cargan.utils.parser import load_data, flatten_dict
 
-test = []
+app  = flask.Flask(__name__, static_url_path="", static_folder="IPCam")
+data = flatten_dict(load_data("IPCam")).items()
 
-
-def _main_():
-    results = explore("./IPCam")
-    for city, info in results.items():
-        print(city)
-
-    env = Environment(loader=FileSystemLoader(os.path.join(sys.path[0], 'templates')))
-    template = env.get_template('overview.html')
-    parsed_template = template.render(cities=results)
-
-    with open(os.path.join('./IPCam', 'visualization.html'), "w") as fio:
-        fio.write(parsed_template)
+# Pagination Cfg
+# ---------------
+PER_PAGE = 3
 
 
-def explore(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
-    alld = {'': {}}
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    current_page, per_page, offset = get_page_args()
+    pagination = Pagination(total=int(len(data) / PER_PAGE),
+                            page=current_page,
+                            per_page=PER_PAGE,
+                            search=False,
+                            link_size='md',
+                            show_single_page=False,
+                            css_framework='bootstrap4')
 
-    for dirpath, dirnames, filenames in os.walk(starting_path):
-        d = alld
-        dirpath = dirpath[len(starting_path):]
-        for subd in dirpath.split(os.sep):
-            based = d
-            d = d[subd]
-        if dirnames:
-            for dn in dirnames:
-                d[dn] = {}
-        else:
-            based[subd] = ['.'+os.path.join(dirpath, f) for f in filenames if f.split('.')[-1] in file_extensions]
+    cities = data[offset: offset + PER_PAGE]
 
-    return alld['']
+    return flask.render_template('index.html',
+                                 pagination=pagination,
+                                 cities=cities)
 
 
 if __name__ == '__main__':
-    _main_()
+    app.run(host='localhost',  port=5000, debug=True)

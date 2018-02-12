@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+{{ pagination.links }}
+{{ pagination.info }}
+    {% for city_date, images in cities %}
+    {% set city, timestamp = city_date.split('::') %}
+    <h4>{{city}}</h4>
+    <div class="Video">
+        <div class="Object">
+            <h5>{{timestamp}}</h5>
+            <div class="Sequence">
+                {% for image in images%}
+                <div><img src="{{image}}"/></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{{ pagination.links }}
+{% endblock %}

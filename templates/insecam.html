@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualization </title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <style type="text/css">
+        .Gallery .grid{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-column-gap: 1em;}
+        img{width:100%; max-height:400px;}
+        .Gallery h2{text-align: center;}
+    </style>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class='Gallery container-fluid'>
+        <h2> Visualization </h2>
+        <div class="grid" id="pagination">
+            {% for item  in ip_cameras[150:165] %}
+            <div class="card">
+                <img class="card-img-top" src={{item['ip_cam']}} />
+                <div class="card-body">
+                    <h5 class="card-title">{{item['city']}} , {{item['country']}}  {{item['zip']}}</h5>
+                    <p>{{item['day_time']}}</p>
+                    <p class="card-text">{{item['ip_cam']}}</p>
+                </div>
+            </div>
+           {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

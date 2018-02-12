@@ -68,19 +68,28 @@ def parse_label_map(label_map_path):
         return label_map_dict
 
 
-def explore(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
-    alld = {'': {}}
-
-    for dirpath, dirnames, filenames in os.walk(starting_path):
-        d = alld
-        dirpath = dirpath[len(starting_path):]
-        for subd in dirpath.split(os.sep):
+def load_data(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
+    data = {'': {}}
+    for dir_path, subdir_list, file_names in os.walk(starting_path):
+        d = data
+        dir_path = dir_path[len(starting_path):]
+        for sub_dir in dir_path.split(os.sep):
             based = d
-            d = d[subd]
-        if dirnames:
-            for dn in dirnames:
+            d = d[sub_dir]
+        if subdir_list:
+            for dn in subdir_list:
                 d[dn] = {}
         else:
-            based[subd] = ['.'+ os.path.join(dirpath, f) for f in filenames if f.split('.')[-1] in file_extensions]
+            based[sub_dir] = [os.path.join(dir_path, f)
+                              for f in file_names if f.split('.')[-1] in file_extensions]
+    return data['']
 
-    return alld['']
+
+def flatten_dict(d):
+    def expand(key, value):
+        if isinstance(value, dict):
+            return [(key + '::' + k, v) for k, v in flatten_dict(value).items() ]
+        else:
+            return [(key, value)]
+    items = [item for k, v in d.items() for item in expand(k, v) ]
+    return dict(items)

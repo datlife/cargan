@@ -5,11 +5,12 @@ from cargan.utils.tfserving import DetectionClient, DetectionServer
 
 class Detector(object):
 
-    def __init__(self, model_name, model_path, label_map, server='localhost:9000', verbose=True):
+    def __init__(self, model_name, model_path, label_map, server='localhost:9000', verbose=True, allowed_gpu_fraction=0.0):
         self.host, self.port = server.split(':')
         self.server  = DetectionServer(model=model_name,
                                        model_path=model_path,
-                                       port=self.port).start()
+                                       port=int(self.port),
+                                       per_process_gpu_memory_fraction=allowed_gpu_fraction).start()
 
         self.client  = DetectionClient(server=server,
                                        model=model_name,
@@ -27,5 +28,5 @@ class Detector(object):
 
         return [], [], []
 
-    def __del__(self):
+    def stop(self):
         self.server.stop()
