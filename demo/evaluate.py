@@ -22,7 +22,6 @@ from cargan.utils.visualizer import visualize_boxes_and_labels_on_image_array, e
 
 
 parser = argparse.ArgumentParser()
-
 parser.add_argument('--annotation_dir', default='./test_data/Annotations')
 parser.add_argument('--detection_dir', default='./test_data/Main')
 parser.add_argument('--logdir', default='/tmp/cargan',

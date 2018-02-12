@@ -7,11 +7,10 @@ from cargan.detector.Detector import Detector
 from cargan.utils.parser import load_data, parse_label_map
 from cargan.utils.ops import compute_nms
 
+DEFAULT_DATA    = './IPCam'
+DETECTORS       = ['faster_rcnn_inception_resnet_v2_atrous_coco']
+COCO_LABEL      = './cargan/detector/label_maps/mscoco.pbtxt'
 ALLOWED_OBJECTS = ['car', 'truck', 'bus']
-
-DETECTORS  = ['faster_rcnn_inception_resnet_v2_atrous_coco']
-COCO_LABEL = './cargan/detector/label_maps/mscoco.pbtxt'
-DEFAULT_DATA = './IPCam'
 
 
 def _main_():
@@ -43,7 +42,9 @@ def _main_():
                                                                        int(x1), int(y1), int(x2), int(y2)))
 
             if detected_vehicles < 2:
-                os.rmdir(os.path.join(DEFAULT_DATA, city, timestamp))
+                no_object_in_seq = os.path.join(DEFAULT_DATA, city, timestamp)
+                print("No objects appear in this sequence. Removing directory %s" % no_object_in_seq)
+                os.rmdir(no_object_in_seq)
             print("Label is created in %s" % city+timestamp)
 
     # Turn off server
@@ -86,6 +87,7 @@ def resize_keep_ratio(image, min_width=600):
     new_height = int(float(image.shape[1]) * float(min_width / float(image.shape[0])))
     resized_img = cv2.resize(image, (new_height, min_width), cv2.INTER_CUBIC)
     return resized_img
+
 
 if __name__ == '__main__':
     _main_()
