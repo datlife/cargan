@@ -1,17 +1,17 @@
 import flask
+import pandas as pd
 from flask_paginate import Pagination, get_page_args
 from cargan.utils.parser import load_data, flatten_dict
 
 app  = flask.Flask(__name__, static_url_path="", static_folder="IPCam")
-data = flatten_dict(load_data("IPCam")).items()
 
 # Pagination Cfg
-# ---------------
 PER_PAGE = 3
 
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    data = flatten_dict(load_data("IPCam"), current_level=0, max_level=1)
     current_page, per_page, offset = get_page_args()
     pagination = Pagination(total=int(len(data) / PER_PAGE),
                             page=current_page,
@@ -21,12 +21,18 @@ def index():
                             show_single_page=False,
                             css_framework='bootstrap4')
 
-    cities = data[offset: offset + PER_PAGE]
-
+    cities = data.items()[offset: offset + PER_PAGE]
     return flask.render_template('index.html',
                                  pagination=pagination,
-                                 cities=cities)
+                                 cities=cities,
+                                 pandas=pd,
+                                 custom_sort=custom_list_sort)
 
+
+def custom_list_sort(a_list, reverse=False):
+    return sorted(a_list,
+                  key=lambda x: int(x.split('/')[-1].split('.')[0]),
+                  reverse=reverse)
 
 if __name__ == '__main__':
-    app.run(host='localhost',  port=5000, debug=True)
+    app.run(host='169.237.118.28',  port=8080, debug=True)

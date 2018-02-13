@@ -11,24 +11,21 @@
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" crossorigin="anonymous"></script>
-
     <style type="text/css">
         .Gallery .Video .Object .Sequence {
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            padding: 0 0 2em 0;
-        }
+            grid-template-columns: repeat(3, 1fr);
+            padding: 0 0 1em 0;
 
+        }
+        canvas{
+            cursor: crosshair;
+            width:100%;
+            height: 100%;
+
+        }
         .Gallery .Video .Sequence:nth-child(even) {
             background: #cccc;
-        }
-        img {
-            width: 100%;
-        }
-
-        img:hover {
-            z-index: 3;
-            transform: scale(2.0); /* (150% zoom - Note: if the zoom is too large, it will go outside of the viewport) */
         }
 
         .Gallery h3 {
@@ -58,8 +55,11 @@
             font-size: 150%;
         }
     </style>
+    {% block javascript %}
+    <script type="text/javascript">{% include "script.js" %}</script>
+    {% endblock %}
 </head>
-<body>
+<body onload="drawImage()">
 <div class='Gallery container-fluid'>
     <h3> Dataset Overview </h3>
     {% block content %} {%endblock %}

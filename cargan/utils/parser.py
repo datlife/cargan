@@ -1,6 +1,6 @@
 import re
-import csv
 import os
+import csv
 from itertools import islice
 
 import numpy as np
@@ -80,16 +80,47 @@ def load_data(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
             for dn in subdir_list:
                 d[dn] = {}
         else:
-            based[sub_dir] = [os.path.join(dir_path, f)
-                              for f in file_names if f.split('.')[-1] in file_extensions]
+            label_path = os.path.join(starting_path + dir_path, 'labels.csv')
+            labels = None
+            if os.path.isfile(label_path):
+                labels = parse_detection_file(label_path)
+
+            based[sub_dir] = {'images': [os.path.join(dir_path, f)
+                                         for f in file_names if f.split('.')[-1] in file_extensions],
+                              'detections':  labels if labels else None}
+
     return data['']
 
 
-def flatten_dict(d):
-    def expand(key, value):
-        if isinstance(value, dict):
-            return [(key + '::' + k, v) for k, v in flatten_dict(value).items() ]
+def parse_detection_file(detection_file):
+
+    detections = {}
+    with open(detection_file, 'r') as f:
+        lines      = f.readlines()
+        splitlines = [x.strip().split(' ') for x in lines]
+
+        for line in splitlines:
+            img_id    = line[0]
+            obj_score = float(line[1])
+            obj_bbox  = np.array(line[2:], dtype=np.float)
+
+            if img_id not in detections.keys():
+                detections[img_id] = {
+                    'scores': [obj_score],
+                    'bboxes': [obj_bbox]
+                }
+            else:
+                detections[img_id]['scores'].append(obj_score)
+                detections[img_id]['bboxes'].append(obj_bbox)
+
+    return detections
+
+
+def flatten_dict(d, current_level, max_level):
+    def expand(key, value, curr_level, max):
+        if isinstance(value, dict) and current_level < max_level:
+            return [(key + '::' + k, v) for k, v in flatten_dict(value, curr_level+1, max).items()]
         else:
             return [(key, value)]
-    items = [item for k, v in d.items() for item in expand(k, v) ]
+    items = [item for k, v in d.items() for item in expand(k, v, curr_level=current_level, max=max_level)]
     return dict(items)

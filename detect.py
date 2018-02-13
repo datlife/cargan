@@ -23,29 +23,35 @@ def _main_():
 
     session = tf.Session()
     for city, info in load_data("./IPCam").items():
-        for timestamp, images in info.items():
+        for timestamp, data in info.items():
             detected_vehicles = 0
-            with open(os.path.join(DEFAULT_DATA, city, timestamp, 'labels.csv'), 'w') as fio:
-                for img_path in images:
-                    image = cv2.imread(DEFAULT_DATA + img_path)
-                    h, w, _ = image.shape
-                    boxes, scores = predict_using_ensemble(detectors,
-                                                           resize_keep_ratio(image, min_width=600),
-                                                           session,
-                                                           score_threshold=0.1)
-                    if len(boxes):
-                        scaled_boxes = [box * np.array([h, w, h, w]) for box in boxes]
-                        detected_vehicles += len(scaled_boxes)
-                        for bbox, score in zip(scaled_boxes, scores):
-                            y1, x1, y2, x2 = bbox
-                            fio.write('{} {:.6f} {} {} {} {}\n'.format(img_path.split('/')[-1], score,
-                                                                       int(x1), int(y1), int(x2), int(y2)))
+            label_file = os.path.join(DEFAULT_DATA, city, timestamp, 'labels.csv')
+            if not os.path.isfile(label_file):
+                with open(label_file, 'w') as fio:
+                    for img_path in data['images']:
+                        image = cv2.imread(DEFAULT_DATA + img_path)
+                        h, w, _ = image.shape
+                        boxes, scores = predict_using_ensemble(detectors,
+                                                               resize_keep_ratio(image, min_width=600),
+                                                               session,
+                                                               score_threshold=0.3)
+                        if len(boxes):
+                            scaled_boxes = [box * np.array([h, w, h, w]) for box in boxes]
+                            detected_vehicles += len(scaled_boxes)
+                            for bbox, score in zip(scaled_boxes, scores):
+                                y1, x1, y2, x2 = bbox
+                                fio.write('{} {:.6f} {} {} {} {}\n'.format(img_path.split('/')[-1], score,
+                                                                           int(x1), int(y1), int(x2), int(y2)))
 
-            if detected_vehicles < 2:
-                no_object_in_seq = os.path.join(DEFAULT_DATA, city, timestamp)
-                print("No objects appear in this sequence. Removing directory %s" % no_object_in_seq)
-                os.rmdir(no_object_in_seq)
-            print("Label is created in %s" % city+timestamp)
+                if detected_vehicles < 2:
+                    no_object_in_seq = os.path.join(DEFAULT_DATA, city, timestamp)
+                    print("No objects appear in this sequence. Removing directory %s" % no_object_in_seq)
+                    try:
+                        os.rmdir(no_object_in_seq)
+                    except Exception as e:
+                        print(e)
+                        pass
+                print("Label is created in %s" % city+timestamp)
 
     # Turn off server
     [detector.stop() for detector in detectors]

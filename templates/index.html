@@ -2,18 +2,24 @@
 {% block content %}
     {{ pagination.links }}
     {{ pagination.info }}
-        {% for city_date, images in cities %}
+        {% for city_date, data in cities %}
         {% set city, timestamp = city_date.split('::') %}
         <h4>{{city}}</h4>
         <div class="Video">
             <div class="Object">
                 <h5>{{timestamp}}</h5>
                 <div class="Sequence">
-                    {% for image_path in images%}
-                    {% set img_id = image_path.split('/')[-1].split('.')[0]}
-                    <img id="{{city}}::{{timestamp}}::{{img_id}}"
-                         src="{{image_path}}"
-                         bboxes={{images['bboxes'][img_id]}} />
+                    {% set sorted_list = custom_sort(data['images'])%}
+                    {% for image_path in sorted_list: %}
+                        {% set img_id = image_path.split('/')[-1] %}
+                        {% set detections = pandas.DataFrame.from_dict(data['detections'][img_id]).to_json()
+                                            if data['detections'][img_id] else {}%}
+
+                        <div id="image">
+                            <canvas  id="{{city}}::{{timestamp}}::{{img_id}}"
+                                 src="{{image_path}}"
+                                 detections={{detections}} />
+                        </div>
                     {% endfor %}
                 </div>
             </div>

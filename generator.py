@@ -30,7 +30,7 @@ def _main_():
     _ = df.pop('Notes')
     df = df.sort_values(by=['current_lighting'], axis=0, ascending=False)
     df = df.reset_index(drop=True)
-    # df = df[df.current_lighting >= 0.1]
+    df = df[df.current_lighting >= 0.2]
     print("Number of IP Cameras: %s" % len(df))
 
     pool = mp.Pool(CPU)
