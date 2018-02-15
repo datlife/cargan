@@ -1,30 +1,88 @@
 function drawImage() {
-    var canvas_list = document.querySelectorAll("canvas");
-    canvas_list.forEach(
+    var overviews = document.querySelectorAll("#overview canvas");
+    var buttons = document.querySelectorAll('button:not(.close)');
+    overviews.forEach(
         function (curr_canvas, curr_idx, listObj) {
-            _draw_image(curr_canvas, 0, 0, 1.0);
-            curr_canvas.addEventListener('mouseout',  function(e){_draw_image(curr_canvas, 0, 0, 1.0);}, false);
-            curr_canvas.addEventListener('mousemove', function(e){_move(curr_canvas, e);}, false);
+            _draw_initial_frame(curr_canvas);
+            curr_canvas.addEventListener('mouseenter', function () {
+                _loop_images(curr_canvas)
+            }, false);
         }
     );
+    buttons.forEach(
+        function (button, idx, lst) {
+            button.addEventListener('click', function () {
+                var seq_id = button.getAttribute('data-target');
+                var canvas_list = document.querySelectorAll(seq_id + " canvas");
+                canvas_list.forEach(
+                    function (curr_canvas, curr_idx, listObj) {
+                        _draw_image(
+                            curr_canvas,
+                            curr_canvas.getAttribute('src'),
+                            JSON.parse(curr_canvas.getAttribute('detections').replace('/', '')).bboxes,
+                            JSON.parse(curr_canvas.getAttribute('detections')).scores,
+                            0, 0, 1.0);
+                    }
+                );
+            })
+        }
+    )
+
 }
-function _move(curr_canvas, event){
-    var rect = curr_canvas.getBoundingClientRect();
-    var x_offset = (event.clientX- rect.left) / curr_canvas.width;
-    var y_offset = (event.clientY- rect.top) / curr_canvas.height;
-    _draw_image(curr_canvas, x_offset, y_offset, 2.0);
+
+function _loop_images(canvas) {
+    var FPS = 1000/5;
+    var images = JSON.parse(canvas.getAttribute('frames'));
+    var detections = JSON.parse(canvas.getAttribute('detections').replace('/', ''));
+    _draw_imgs_list(canvas, images, detections, FPS); // actually draw things
 }
 
-function _draw_image(curr_canvas, x_offset, y_offset, zoom_level) {
+function _draw_imgs_list(canvas, images, detections, FPS) {
+    var breaksignal = false;
+    var keys = Object.keys(images);
+    for (let img_id of keys){
+        function doLoop(){
+            if (breaksignal === false) {
+                var img_url = images[img_id];
+                var detection = detections[img_url.split('/').pop()];
+                if (detection) {
+                    _draw_image(canvas, img_url, detection.bboxes, detection.scores, 0, 0, 1.0);
+                }
+                else {
+                    _draw_image(canvas, img_url, null, null, 0, 0, 1.0);
+                }
+            }
+        }
+        setTimeout(doLoop, FPS * img_id);
+    }
+    $(canvas).on("mouseout", function (e) {
+        breaksignal = true;
+    });
 
-    var ctx = curr_canvas.getContext("2d");
-    var bboxes = JSON.parse(curr_canvas.getAttribute('detections')).bboxes;
+}
 
-    var img_title = curr_canvas.getAttribute('src').split('/').pop();
+function _draw_initial_frame(canvas){
+    var images = JSON.parse(canvas.getAttribute('frames'));
+    var detections = JSON.parse(canvas.getAttribute('detections').replace('/', ''));
+    //draw first frame
+    var img_url = images[0];
+    var detection = detections[img_url.split('/').pop()];
+    if (detection) {
+        _draw_image(canvas, img_url, detection.bboxes, detection.scores, 0, 0, 1.0);
+    }
+    else {
+        _draw_image(canvas, img_url, null, null, 0, 0, 1.0);
+    }
+}
+
+
+function _draw_image(canvas, img_url, bboxes, confidence_scores, x_offset, y_offset, zoom_level) {
+    var ctx = canvas.getContext("2d");
+    var img_title =img_url.split('/').pop();
     var img = new Image();
 
     img.onload = function () {
-        ctx.clearRect(0, 0, curr_canvas.width, curr_canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         var x_top =  x_offset*(img.width - img.width / zoom_level);
         var y_top =  y_offset*(img.height - img.height/ zoom_level);
 
@@ -32,49 +90,47 @@ function _draw_image(curr_canvas, x_offset, y_offset, zoom_level) {
             x_top ,
             y_top,
             img.width / zoom_level, img.height / zoom_level,
-            0, 0, curr_canvas.width, curr_canvas.height);
-
+            0, 0, canvas.width, canvas.height);
         if (bboxes) {
-            var confidence_scores = JSON.parse(curr_canvas.getAttribute('detections')).scores;
-
             ctx.beginPath();
-            var w_ratio = zoom_level*(curr_canvas.width / img.width);
-            var h_ratio = zoom_level*(curr_canvas.height / img.height);
+            var w_ratio = zoom_level*(canvas.width / img.width);
+            var h_ratio = zoom_level*(canvas.height / img.height);
             var scale_array = [w_ratio, h_ratio, w_ratio, h_ratio];
-
             Object.keys(bboxes).map(function (bbox_id) {
                 bbox = bboxes[bbox_id].map((value, idx) => value * scale_array[idx]);
-                xpos = bbox[0] -  x_offset*(curr_canvas.width);
-                ypos = bbox[1] - y_offset*(curr_canvas.height);
+                xpos = bbox[0] - x_offset*(canvas.width);
+                ypos = bbox[1] - y_offset*(canvas.height);
                 width = bbox[2] - bbox[0];
                 height = bbox[3] - bbox[1];
-
                 ctx.rect(xpos, ypos, width, height);
-                drawTextBG(ctx, confidence_scores[id], '32px arial',  xpos, ypos - 20);
+                drawTextBG(ctx, Math.round(100*confidence_scores[bbox_id]) + "%", '8px arial',  xpos, ypos-9);
             });
             ctx.strokeStyle = 'yellow';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1;
             ctx.stroke();
         }
         ctx.fillStyle = 'yellow';
-        ctx.fillText(img_title, curr_canvas.width - 5 * img_title.length, curr_canvas.height -5);
+        ctx.fillText(img_title, canvas.width - 5 * img_title.length, canvas.height -5);
     };
     img.crossOrigin = true;
-    img.src = curr_canvas.getAttribute('src');
+    img.src = img_url;
 }
 
 function drawTextBG(ctx, txt, font, x, y) {
-
     ctx.save();
     ctx.font = font;
     ctx.textBaseline = 'top';
-    ctx.fillStyle = 'black';
-
+    ctx.fillStyle = 'yellow';
     var width = ctx.measureText(txt).width;
     ctx.fillRect(x, y, width, parseInt(font, 10));
-
-    ctx.fillStyle = 'yellow';
+    ctx.fillStyle = 'black';
     ctx.fillText(txt, x, y);
-
     ctx.restore();
+}
+
+function _move(curr_canvas, event){
+    var rect = curr_canvas.getBoundingClientRect();
+    var x_offset = (event.clientX- rect.left) / curr_canvas.width;
+    var y_offset = (event.clientY- rect.top) / curr_canvas.height;
+    _draw_image(curr_canvas, x_offset, y_offset, 2.0);
 }

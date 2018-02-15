@@ -7,7 +7,7 @@ from cargan.detector.Detector import Detector
 from cargan.utils.parser import load_data, parse_label_map
 from cargan.utils.ops import compute_nms
 
-DEFAULT_DATA    = './IPCam'
+DATASET_PATH    = './IPCam'
 DETECTORS       = ['faster_rcnn_inception_resnet_v2_atrous_coco']
 COCO_LABEL      = './cargan/detector/label_maps/mscoco.pbtxt'
 ALLOWED_OBJECTS = ['car', 'truck', 'bus']
@@ -18,21 +18,21 @@ def _main_():
                             model_path=os.path.abspath(os.path.join('./cargan', 'detector', model)),
                             label_map=parse_label_map(COCO_LABEL),
                             server='localhost:%s' % (9000 + idx),
-                            allowed_gpu_fraction=0.0)
+                            allowed_gpu_fraction=0.40)
                    for idx, model in enumerate(DETECTORS)]
 
     session = tf.Session()
-    for city, info in load_data("./IPCam").items():
+    for city, info in load_data(DATASET_PATH).items():
         for timestamp, data in info.items():
             detected_vehicles = 0
-            label_file = os.path.join(DEFAULT_DATA, city, timestamp, 'labels.csv')
+            label_file = os.path.join(DATASET_PATH, city, timestamp, 'labels.csv')
             if not os.path.isfile(label_file):
                 with open(label_file, 'w') as fio:
                     for img_path in data['images']:
-                        image = cv2.imread(DEFAULT_DATA + img_path)
+                        image = cv2.imread(DATASET_PATH + img_path)
                         h, w, _ = image.shape
                         boxes, scores = predict_using_ensemble(detectors,
-                                                               resize_keep_ratio(image, min_width=600),
+                                                               resize_keep_ratio(image, min_width=720),
                                                                session,
                                                                score_threshold=0.3)
                         if len(boxes):
@@ -44,7 +44,7 @@ def _main_():
                                                                            int(x1), int(y1), int(x2), int(y2)))
 
                 if detected_vehicles < 2:
-                    no_object_in_seq = os.path.join(DEFAULT_DATA, city, timestamp)
+                    no_object_in_seq = os.path.join(DATASET_PATH, city, timestamp)
                     print("No objects appear in this sequence. Removing directory %s" % no_object_in_seq)
                     try:
                         os.rmdir(no_object_in_seq)

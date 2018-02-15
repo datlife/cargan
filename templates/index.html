@@ -1,29 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
-    {{ pagination.links }}
-    {{ pagination.info }}
-        {% for city_date, data in cities %}
-        {% set city, timestamp = city_date.split('::') %}
-        <h4>{{city}}</h4>
-        <div class="Video">
-            <div class="Object">
-                <h5>{{timestamp}}</h5>
-                <div class="Sequence">
-                    {% set sorted_list = custom_sort(data['images'])%}
-                    {% for image_path in sorted_list: %}
-                        {% set img_id = image_path.split('/')[-1] %}
-                        {% set detections = pandas.DataFrame.from_dict(data['detections'][img_id]).to_json()
-                                            if data['detections'][img_id] else {}%}
+{{ pagination.links }}
+{{ pagination.info }}
 
-                        <div id="image">
-                            <canvas  id="{{city}}::{{timestamp}}::{{img_id}}"
-                                 src="{{image_path}}"
-                                 detections={{detections}} />
+<div id="grid-display">
+ {% for city_date, data in cities %}
+    {% set city, timestamp = city_date.split('::') %}
+    {% set sorted_list = custom_sort(data['images'])%}
+    {% set dets = pandas.DataFrame.from_dict(data['detections']).to_json() if data['detections'] else {}%}
+
+    <div class="card">
+        <div class="card-block">
+            <div id="overview" class="card-img-top">
+                <canvas id="overview_{{city}}_{{timestamp}}"
+                        frames={{pandas.Series.from_array(sorted_list).to_json()}}
+                        detections={{dets}}
+                        width="520" height="360"/>
+            </div>
+            <h6 class="card-title"><strong>{{city}}</strong></h6>
+            <div class="card-text">{{timestamp}}</div>
+            <button type="button"
+                    class="btn btn-info btn-sm"
+                data-toggle="modal" data-target="#{{city}}_{{timestamp}}">Show this sequence</button>
+        </div>
+        <div class="modal fade container-fluid"
+             id="{{city}}_{{timestamp}}"
+             tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle" aria-hidden="true">
+            <div class="modal-dialog" id="role">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                          <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                         <div id="sequence" >
+                            {% for image_path in sorted_list: %}
+                            {% set img_id = image_path.split('/')[-1] %}
+                            {% set detections = pandas.DataFrame.from_dict(data['detections'][img_id]).to_json()
+                            if data['detections'][img_id] else {}%}
+                            <div id="image">
+                                <canvas id="{{city}}::{{timestamp}}::{{img_id}}"
+                                        src="{{image_path}}"
+                                        detections={{detections}}></canvas>
+                            </div>
+                            {% endfor %}
                         </div>
-                    {% endfor %}
-                </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
             </div>
         </div>
-        {% endfor %}
-    {{ pagination.links }}
+        </div>
+    </div>
+{% endfor %}
+</div>
+
+{{ pagination.links }}
 {% endblock %}

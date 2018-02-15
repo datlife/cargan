@@ -22,6 +22,7 @@ DATASET = 'insecam_traffic.tsv'
 DEFAULT_DIR = './IPCam'
 DEFAULT_SEQ = 40
 CPU = 4
+CURRENT_LIGHTING = 0.3
 
 
 def _main_():
@@ -30,7 +31,7 @@ def _main_():
     _ = df.pop('Notes')
     df = df.sort_values(by=['current_lighting'], axis=0, ascending=False)
     df = df.reset_index(drop=True)
-    df = df[df.current_lighting >= 0.2]
+    df = df[df.current_lighting >= CURRENT_LIGHTING]
     print("Number of IP Cameras: %s" % len(df))
 
     pool = mp.Pool(CPU)
@@ -43,12 +44,14 @@ def func(chunk):
     results = []
     for index, ip in chunk.iterrows():
         camera = IPCam(ip['ip_cam'])
-        parent_dir = '_'.join([re.sub(r'\W+', '', ip['city']),
-                               re.sub(r'\W+', '', ip['code']),
+        parent_dir = '_'.join([re.sub(r'\W+', '', ip['code']),
+                               re.sub(r'\W+', '', ip['city']),
                                str(ip['zip']).strip('-_')])
 
+        local_timezone = calculate_local_time(re.sub(r'[+-]\W+', '', ip['timezone']))
         sequence_dir = '_'.join(['day' if ip['current_lighting'] > 0.1 else 'night',
-                                 datetime.datetime.now().strftime("%Y%m%d_%H%M%S")])
+                                 datetime.datetime.now(local_timezone).strftime("%Y%m%d_%H%M%S")])
+
         output_dir = os.path.join(DEFAULT_DIR, parent_dir, sequence_dir)
         if not os.path.isdir(output_dir):
             try:
@@ -83,6 +86,28 @@ def has_day_light(row):
     sun = ephem.Sun(o)
     return float(sun.alt)
 
+
+def calculate_local_time(timezone):
+    hours, minutes = timezone.split(":")
+    offset_in_seconds = 60*(60*int(hours) + int(minutes))
+    tzinfo = CustomTimezone(offset_in_seconds)
+    return tzinfo
+
+
+class CustomTimezone(datetime.tzinfo):
+
+    def __init__(self, offset_in_seconds, name=None):
+        self.offset = datetime.timedelta(seconds=offset_in_seconds)
+        self.name = name or self.__class__.__name__
+
+    def utcoffset(self, dt):
+        return self.offset
+
+    def tzname(self, dt):
+        return self.name
+
+    def dst(self, dt):
+        return datetime.timedelta(0)
 
 if __name__ == '__main__':
     _main_()

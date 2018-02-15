@@ -8,6 +8,7 @@ if sys.version_info[0] < 3:
 else:
     import urllib.request as urltool
 
+import multiprocessing as mp
 
 # @TODO: add test
 # @TODO: skip if fail to get frame

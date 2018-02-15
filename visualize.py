@@ -6,14 +6,14 @@ from cargan.utils.parser import load_data, flatten_dict
 app  = flask.Flask(__name__, static_url_path="", static_folder="IPCam")
 
 # Pagination Cfg
-PER_PAGE = 3
+PER_PAGE = 6
 
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     data = flatten_dict(load_data("IPCam"), current_level=0, max_level=1)
     current_page, per_page, offset = get_page_args()
-    pagination = Pagination(total=int(len(data) / PER_PAGE),
+    pagination = Pagination(total=int(len(data)),
                             page=current_page,
                             per_page=PER_PAGE,
                             search=False,
