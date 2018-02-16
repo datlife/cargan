@@ -7,10 +7,10 @@ from cargan.detector.Detector import Detector
 from cargan.utils.parser import load_data, parse_label_map
 from cargan.utils.ops import compute_nms
 
-DATASET_PATH    = './IPCam'
+DATASET_PATH    = '/media/dat/dataset/jpda_m/Data/PETS/PETS09/Images/S4/Crowd_PETS09/S2/L2'
 DETECTORS       = ['faster_rcnn_inception_resnet_v2_atrous_coco']
 COCO_LABEL      = './cargan/detector/label_maps/mscoco.pbtxt'
-ALLOWED_OBJECTS = ['car', 'truck', 'bus']
+ALLOWED_OBJECTS = ['person']
 
 
 def _main_():
