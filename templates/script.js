@@ -1,3 +1,52 @@
+STANDARD_COLORS = [
+    'AliceBlue', 'Chartreuse', 'Aqua', 'Aquamarine', 'Azure', 'Beige', 'Bisque',
+    'BlanchedAlmond', 'BlueViolet', 'BurlyWood', 'CadetBlue', 'AntiqueWhite',
+    'Chocolate', 'Coral', 'CornflowerBlue', 'Cornsilk', 'Crimson', 'Cyan',
+    'DarkCyan', 'DarkGoldenRod', 'DarkGrey', 'DarkKhaki', 'DarkOrange',
+    'DarkOrchid', 'DarkSalmon', 'DarkSeaGreen', 'DarkTurquoise', 'DarkViolet',
+    'DeepPink', 'DeepSkyBlue', 'DodgerBlue', 'FireBrick', 'FloralWhite',
+    'ForestGreen', 'Fuchsia', 'Gainsboro', 'GhostWhite', 'Gold', 'GoldenRod',
+    'Salmon', 'Tan', 'HoneyDew', 'HotPink', 'IndianRed', 'Ivory', 'Khaki',
+    'Lavender', 'LavenderBlush', 'LawnGreen', 'LemonChiffon', 'LightBlue',
+    'LightCoral', 'LightCyan', 'LightGoldenRodYellow', 'LightGray', 'LightGrey',
+    'LightGreen', 'LightPink', 'LightSalmon', 'LightSeaGreen', 'LightSkyBlue',
+    'LightSlateGray', 'LightSlateGrey', 'LightSteelBlue', 'LightYellow', 'Lime',
+    'LimeGreen', 'Linen', 'Magenta', 'MediumAquaMarine', 'MediumOrchid',
+    'MediumPurple', 'MediumSeaGreen', 'MediumSlateBlue', 'MediumSpringGreen',
+    'MediumTurquoise', 'MediumVioletRed', 'MintCream', 'MistyRose', 'Moccasin',
+    'NavajoWhite', 'OldLace', 'Olive', 'OliveDrab', 'Orange', 'OrangeRed',
+    'Orchid', 'PaleGoldenRod', 'PaleGreen', 'PaleTurquoise', 'PaleVioletRed',
+    'PapayaWhip', 'PeachPuff', 'Peru', 'Pink', 'Plum', 'PowderBlue', 'Purple',
+    'Red', 'RosyBrown', 'RoyalBlue', 'SaddleBrown', 'Green', 'SandyBrown',
+    'SeaGreen', 'SeaShell', 'Sienna', 'Silver', 'SkyBlue', 'SlateBlue',
+    'SlateGray', 'SlateGrey', 'Snow', 'SpringGreen', 'SteelBlue', 'GreenYellow',
+    'Teal', 'Thistle', 'Tomato', 'Turquoise', 'Violet', 'Wheat', 'White',
+    'WhiteSmoke', 'Yellow', 'YellowGreen',
+    'AliceBlue', 'Chartreuse', 'Aqua', 'Aquamarine', 'Azure', 'Beige', 'Bisque',
+    'BlanchedAlmond', 'BlueViolet', 'BurlyWood', 'CadetBlue', 'AntiqueWhite',
+    'Chocolate', 'Coral', 'CornflowerBlue', 'Cornsilk', 'Crimson', 'Cyan',
+    'DarkCyan', 'DarkGoldenRod', 'DarkGrey', 'DarkKhaki', 'DarkOrange',
+    'DarkOrchid', 'DarkSalmon', 'DarkSeaGreen', 'DarkTurquoise', 'DarkViolet',
+    'DeepPink', 'DeepSkyBlue', 'DodgerBlue', 'FireBrick', 'FloralWhite',
+    'ForestGreen', 'Fuchsia', 'Gainsboro', 'GhostWhite', 'Gold', 'GoldenRod',
+    'Salmon', 'Tan', 'HoneyDew', 'HotPink', 'IndianRed', 'Ivory', 'Khaki',
+    'Lavender', 'LavenderBlush', 'LawnGreen', 'LemonChiffon', 'LightBlue',
+    'LightCoral', 'LightCyan', 'LightGoldenRodYellow', 'LightGray', 'LightGrey',
+    'LightGreen', 'LightPink', 'LightSalmon', 'LightSeaGreen', 'LightSkyBlue',
+    'LightSlateGray', 'LightSlateGrey', 'LightSteelBlue', 'LightYellow', 'Lime',
+    'LimeGreen', 'Linen', 'Magenta', 'MediumAquaMarine', 'MediumOrchid',
+    'MediumPurple', 'MediumSeaGreen', 'MediumSlateBlue', 'MediumSpringGreen',
+    'MediumTurquoise', 'MediumVioletRed', 'MintCream', 'MistyRose', 'Moccasin',
+    'NavajoWhite', 'OldLace', 'Olive', 'OliveDrab', 'Orange', 'OrangeRed',
+    'Orchid', 'PaleGoldenRod', 'PaleGreen', 'PaleTurquoise', 'PaleVioletRed',
+    'PapayaWhip', 'PeachPuff', 'Peru', 'Pink', 'Plum', 'PowderBlue', 'Purple',
+    'Red', 'RosyBrown', 'RoyalBlue', 'SaddleBrown', 'Green', 'SandyBrown',
+    'SeaGreen', 'SeaShell', 'Sienna', 'Silver', 'SkyBlue', 'SlateBlue',
+    'SlateGray', 'SlateGrey', 'Snow', 'SpringGreen', 'SteelBlue', 'GreenYellow',
+    'Teal', 'Thistle', 'Tomato', 'Turquoise', 'Violet', 'Wheat', 'White',
+    'WhiteSmoke', 'Yellow', 'YellowGreen'
+]
+
 function drawImage() {
     var overviews = document.querySelectorAll("#overview canvas");
     var buttons = document.querySelectorAll('button:not(.close)');
@@ -31,7 +80,7 @@ function drawImage() {
 }
 
 function _loop_images(canvas) {
-    var FPS = 1000/5;
+    var FPS = 1000/20;
     var images = JSON.parse(canvas.getAttribute('frames'));
     var detections = JSON.parse(canvas.getAttribute('detections').replace('/', ''));
     _draw_imgs_list(canvas, images, detections, FPS); // actually draw things
@@ -76,38 +125,42 @@ function _draw_initial_frame(canvas){
 }
 
 
-function _draw_image(canvas, img_url, bboxes, confidence_scores, x_offset, y_offset, zoom_level) {
+function _draw_image(canvas, img_url, bboxes, confidence_scores) {
     var ctx = canvas.getContext("2d");
     var img_title =img_url.split('/').pop();
     var img = new Image();
 
     img.onload = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        var x_top =  x_offset*(img.width - img.width / zoom_level);
-        var y_top =  y_offset*(img.height - img.height/ zoom_level);
+        var x_top =  img.width - img.width;
+        var y_top =  img.height - img.height;
 
         ctx.drawImage(img,
             x_top ,
             y_top,
-            img.width / zoom_level, img.height / zoom_level,
+            img.width, img.height,
             0, 0, canvas.width, canvas.height);
+
         if (bboxes) {
-            ctx.beginPath();
-            var w_ratio = zoom_level*(canvas.width / img.width);
-            var h_ratio = zoom_level*(canvas.height / img.height);
+            var w_ratio = (canvas.width / img.width);
+            var h_ratio = (canvas.height / img.height);
             var scale_array = [w_ratio, h_ratio, w_ratio, h_ratio];
             Object.keys(bboxes).map(function (bbox_id) {
+                ctx.beginPath();
                 bbox = bboxes[bbox_id].map((value, idx) => value * scale_array[idx]);
-                xpos = bbox[0] - x_offset*(canvas.width);
-                ypos = bbox[1] - y_offset*(canvas.height);
+                xpos = bbox[0];
+                ypos = bbox[1];
                 width = bbox[2] - bbox[0];
                 height = bbox[3] - bbox[1];
+
                 ctx.rect(xpos, ypos, width, height);
-                drawTextBG(ctx, Math.round(100*confidence_scores[bbox_id]) + "%", '8px arial',  xpos, ypos-9);
+                object_id = Math.round(confidence_scores[bbox_id])
+                drawTextBG(ctx, object_id, '8px arial',  xpos, ypos-9, STANDARD_COLORS[object_id]);
+                ctx.strokeStyle =  STANDARD_COLORS[object_id];
+                ctx.lineWidth = 3;
+                ctx.stroke();
             });
-            ctx.strokeStyle = 'yellow';
-            ctx.lineWidth = 1;
-            ctx.stroke();
+
         }
         ctx.fillStyle = 'yellow';
         ctx.fillText(img_title, canvas.width - 5 * img_title.length, canvas.height -5);
@@ -116,11 +169,11 @@ function _draw_image(canvas, img_url, bboxes, confidence_scores, x_offset, y_off
     img.src = img_url;
 }
 
-function drawTextBG(ctx, txt, font, x, y) {
+function drawTextBG(ctx, txt, font, x, y, color) {
     ctx.save();
     ctx.font = font;
     ctx.textBaseline = 'top';
-    ctx.fillStyle = 'yellow';
+    ctx.fillStyle = color;
     var width = ctx.measureText(txt).width;
     ctx.fillRect(x, y, width, parseInt(font, 10));
     ctx.fillStyle = 'black';
@@ -128,9 +181,6 @@ function drawTextBG(ctx, txt, font, x, y) {
     ctx.restore();
 }
 
-function _move(curr_canvas, event){
-    var rect = curr_canvas.getBoundingClientRect();
-    var x_offset = (event.clientX- rect.left) / curr_canvas.width;
-    var y_offset = (event.clientY- rect.top) / curr_canvas.height;
-    _draw_image(curr_canvas, x_offset, y_offset, 2.0);
+function random_color(number){
+
 }
