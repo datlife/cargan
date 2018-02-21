@@ -68,7 +68,7 @@ def parse_label_map(label_map_path):
         return label_map_dict
 
 
-def load_data(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
+def load_data(starting_path, file_extensions=['jpg', 'png', 'jpeg'], load_gt=False):
     data = {'': {}}
     for dir_path, subdir_list, file_names in os.walk(starting_path):
         d = data
@@ -83,13 +83,34 @@ def load_data(starting_path, file_extensions=['jpg', 'png', 'jpeg']):
             label_path = os.path.join(starting_path + dir_path, 'labels.csv')
             labels = None
             if os.path.isfile(label_path):
-                labels = parse_detection_file(label_path)
+                labels = parse_detection_file(label_path) if not load_gt else parse_ground_truth_file(label_path)
 
             based[sub_dir] = {'images': [os.path.join(dir_path, f)
                                          for f in file_names if f.split('.')[-1] in file_extensions],
                               'detections':  labels if labels else None}
 
     return data['']
+
+
+def parse_ground_truth_file(gt_file):
+    ground_truths = {}
+    with open(gt_file, 'r') as f:
+        lines = f.readlines()
+        splitlines = [x.strip().split(' ') for x in lines][1:]
+
+        for line in splitlines:
+            img_id = line[0]
+            obj_bbox = np.array(line[1:5], dtype=np.float)
+            obj_idx = float(line[-1])
+            if img_id not in ground_truths.keys():
+                ground_truths[img_id] = {
+                    'scores': [obj_idx],
+                    'bboxes': [obj_bbox]
+                }
+            else:
+                ground_truths[img_id]['scores'].append(obj_idx)
+                ground_truths[img_id]['bboxes'].append(obj_bbox)
+    return ground_truths
 
 
 def parse_detection_file(detection_file):
