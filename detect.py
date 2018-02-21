@@ -7,21 +7,23 @@ from cargan.detector.Detector import Detector
 from cargan.utils.parser import load_data, parse_label_map
 from cargan.utils.ops import compute_nms
 
-DATASET_PATH    = '/media/dat/dataset/jpda_m/Data/PETS/PETS09/Images/S4/Crowd_PETS09/S2/L2'
-DETECTORS       = ['faster_rcnn_inception_resnet_v2_atrous_coco']
+DATASET_PATH    = './IPCam'
+DETECTORS       = ['faster_rcnn_inception_resnet_v2_atrous_coco', 'faster_rcnn_nas_coco']
 COCO_LABEL      = './cargan/detector/label_maps/mscoco.pbtxt'
-ALLOWED_OBJECTS = ['person']
+ALLOWED_OBJECTS = ['car', 'truck', 'bus']
 
 
 def _main_():
-    detectors   = [Detector(model_name=model,
+    session = tf.Session()
+    detectors = []
+    for idx, model in enumerate(DETECTORS):
+        detector = Detector(model_name=model,
                             model_path=os.path.abspath(os.path.join('./cargan', 'detector', model)),
                             label_map=parse_label_map(COCO_LABEL),
                             server='localhost:%s' % (9000 + idx),
-                            allowed_gpu_fraction=0.40)
-                   for idx, model in enumerate(DETECTORS)]
+                            allowed_gpu_fraction=0.00)
+        detectors.append(detector)
 
-    session = tf.Session()
     for city, info in load_data(DATASET_PATH).items():
         for timestamp, data in info.items():
             detected_vehicles = 0
@@ -32,7 +34,7 @@ def _main_():
                         image = cv2.imread(DATASET_PATH + img_path)
                         h, w, _ = image.shape
                         boxes, scores = predict_using_ensemble(detectors,
-                                                               resize_keep_ratio(image, min_width=720),
+                                                               resize_keep_ratio(image, min_width=600),
                                                                session,
                                                                score_threshold=0.3)
                         if len(boxes):
