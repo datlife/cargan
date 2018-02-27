@@ -4,7 +4,7 @@ import pandas as pd
 from flask_paginate import Pagination, get_page_args
 from cargan.utils.parser import load_data, flatten_dict
 
-app  = flask.Flask(__name__, static_url_path="", static_folder="/media/dat/dataset/DETRAC/OUTPUT")
+app  = flask.Flask(__name__, static_url_path="", static_folder="IPCam")
 
 # Pagination Cfg
 PER_PAGE = 6
@@ -12,7 +12,7 @@ PER_PAGE = 6
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    data = flatten_dict(load_data("/media/dat/dataset/DETRAC/OUTPUT", load_gt=True), current_level=0, max_level=1)
+    data = flatten_dict(load_data("IPCam", load_gt=False), current_level=0, max_level=1)
     current_page, per_page, offset = get_page_args()
     pagination = Pagination(total=int(len(data)),
                             page=current_page,

@@ -19,10 +19,10 @@ import sys
 from jinja2 import Environment, FileSystemLoader
 
 DATASET = 'insecam_traffic.tsv'
-DEFAULT_DIR = './IPCam'
+DEFAULT_DIR = '/media/dat/dataset1/IPCam'
 DEFAULT_SEQ = 40
 CPU = 4
-CURRENT_LIGHTING = 0.3
+CURRENT_LIGHTING = 0.4
 
 
 def _main_():
